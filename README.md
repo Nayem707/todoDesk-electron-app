@@ -384,5 +384,3 @@ Open the **Electron window**, not a tab at `http://127.0.0.1:5173`. The browser 
 ## License
 
 MIT
-#   T o d o D e s k - E l e c t r o n - a p p  
- 
