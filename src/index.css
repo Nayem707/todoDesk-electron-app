@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 247 244 239;
+  --surface: 255 252 247;
+  --sidebar: 240 235 226;
+  --border: 221 212 198;
+  --text: 36 32 27;
+  --muted: 110 99 88;
+  --accent: 13 116 110;
+  --accent-foreground: 255 255 255;
+  --danger: 185 53 53;
+  --titlebar: 40px;
+}
+
+.dark {
+  --bg: 20 18 16;
+  --surface: 32 28 24;
+  --sidebar: 26 23 20;
+  --border: 58 51 44;
+  --text: 244 237 227;
+  --muted: 168 154 139;
+  --accent: 45 166 156;
+  --accent-foreground: 16 18 16;
+  --danger: 232 121 113;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--border)) transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  user-select: text;
+}
+
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.todo-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.todo-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.todo-scroll::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 999px;
+}
