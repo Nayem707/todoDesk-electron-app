@@ -2,21 +2,21 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Toaster } from "sonner";
 import { AppShell } from "./layouts/AppShell";
 import { ClipboardPage } from "./pages/ClipboardPage";
-import { DashboardPage } from "./pages/DashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { TasksPage } from "./pages/TasksPage";
+import { TodoPage } from "./pages/TodoPage";
 import { TodoModal } from "./components/TodoModal";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { SettingsProvider, useSettings } from "./store/SettingsProvider";
 import { ClipboardProvider } from "./store/ClipboardProvider";
 import { TodoProvider, useTodos } from "./store/TodoProvider";
-import type { AppView, Todo } from "./types/todo";
+import type { AppView, Todo, TodoTab } from "./types/todo";
 
 function AppFrame() {
   const { resolvedTheme, settings } = useSettings();
   const { createTodo, updateTodo, deleteTodo } = useTodos();
-  const [view, setView] = useState<AppView>("dashboard");
+  const [view, setView] = useState<AppView>("todo");
+  const [todoTab, setTodoTab] = useState<TodoTab>("dashboard");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Todo | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Todo | null>(null);
@@ -57,15 +57,6 @@ function AppFrame() {
   });
 
   const page = useMemo(() => {
-    if (view === "dashboard") {
-      return (
-        <DashboardPage
-          onCreate={openCreate}
-          onEdit={openEdit}
-          onDelete={requestDelete}
-        />
-      );
-    }
     if (view === "settings") {
       return <SettingsPage />;
     }
@@ -73,15 +64,16 @@ function AppFrame() {
       return <ClipboardPage searchRef={searchRef} />;
     }
     return (
-      <TasksPage
-        view={view}
+      <TodoPage
+        tab={todoTab}
+        onTabChange={setTodoTab}
         searchRef={searchRef}
         onCreate={openCreate}
         onEdit={openEdit}
         onDelete={requestDelete}
       />
     );
-  }, [openCreate, openEdit, requestDelete, view]);
+  }, [openCreate, openEdit, requestDelete, todoTab, view]);
 
   return (
     <>

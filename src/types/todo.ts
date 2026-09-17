@@ -1,14 +1,14 @@
 export type Priority = "low" | "medium" | "high";
 export type ThemePreference = "light" | "dark" | "system";
-export type AppView =
+export type TodoTab =
   | "dashboard"
   | "all"
   | "today"
   | "upcoming"
   | "completed"
-  | "high"
-  | "clipboard"
-  | "settings";
+  | "high";
+
+export type AppView = "todo" | "clipboard" | "settings";
 
 export type FilterOption =
   | "all"

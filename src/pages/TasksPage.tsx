@@ -4,10 +4,10 @@ import { FilterBar } from "../components/FilterBar";
 import { SearchBar } from "../components/SearchBar";
 import { TodoList } from "../components/TodoList";
 import { useTodos } from "../store/TodoProvider";
-import type { AppView, FilterOption, SortOption, Todo } from "../types/todo";
+import type { FilterOption, SortOption, Todo, TodoTab } from "../types/todo";
 import { queryTodos } from "../utils/todoFilters";
 
-const TITLES: Record<Exclude<AppView, "dashboard" | "settings" | "clipboard">, string> = {
+const TITLES: Record<Exclude<TodoTab, "dashboard">, string> = {
   all: "All Tasks",
   today: "Today",
   upcoming: "Upcoming",
@@ -16,7 +16,7 @@ const TITLES: Record<Exclude<AppView, "dashboard" | "settings" | "clipboard">, s
 };
 
 interface TasksPageProps {
-  view: Exclude<AppView, "dashboard" | "settings" | "clipboard">;
+  view: Exclude<TodoTab, "dashboard">;
   searchRef: RefObject<HTMLInputElement | null>;
   onCreate: () => void;
   onEdit: (todo: Todo) => void;
@@ -85,7 +85,7 @@ export function TasksPage({
           emptyDescription={
             search
               ? "Try a different search, filter, or sort."
-              : "Create a task or switch views from the sidebar."
+              : "Create a task or switch views from the tabs."
           }
           action={
             <button

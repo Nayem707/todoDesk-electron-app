@@ -1,12 +1,9 @@
 import { useMemo, useState, type RefObject } from "react";
 import { ClipboardItemCard } from "../components/ClipboardItemCard";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { SearchBar } from "../components/SearchBar";
 import { filterClipboardItems } from "../services/clipboardService";
 import { useClipboard } from "../store/ClipboardProvider";
-import { useSettings } from "../store/SettingsProvider";
-import type { ClipboardItem } from "../types/clipboard";
 
 interface ClipboardPageProps {
   searchRef: RefObject<HTMLInputElement | null>;
@@ -14,19 +11,9 @@ interface ClipboardPageProps {
 
 export function ClipboardPage({ searchRef }: ClipboardPageProps) {
   const { items, loading, copyAgain, deleteItem, togglePin } = useClipboard();
-  const { settings } = useSettings();
   const [search, setSearch] = useState("");
-  const [pendingDelete, setPendingDelete] = useState<ClipboardItem | null>(null);
 
   const visible = useMemo(() => filterClipboardItems(items, search), [items, search]);
-
-  const requestDelete = (item: ClipboardItem) => {
-    if (settings.confirmBeforeDelete) {
-      setPendingDelete(item);
-      return;
-    }
-    void deleteItem(item.id);
-  };
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-6">
@@ -71,27 +58,12 @@ export function ClipboardPage({ searchRef }: ClipboardPageProps) {
               key={item.id}
               item={item}
               onCopyAgain={(next) => void copyAgain(next.id)}
-              onDelete={requestDelete}
+              onDelete={(next) => void deleteItem(next.id)}
               onTogglePin={(next) => void togglePin(next.id)}
             />
           ))}
         </div>
       )}
-
-      <ConfirmDialog
-        open={Boolean(pendingDelete)}
-        title="Delete clipboard item"
-        description="This copied text will be permanently removed from history."
-        confirmLabel="Delete"
-        danger
-        onCancel={() => setPendingDelete(null)}
-        onConfirm={async () => {
-          if (pendingDelete) {
-            await deleteItem(pendingDelete.id);
-            setPendingDelete(null);
-          }
-        }}
-      />
     </div>
   );
 }

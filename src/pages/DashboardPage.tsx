@@ -13,13 +13,19 @@ interface DashboardPageProps {
   onDelete: (todo: Todo) => void;
 }
 
-export function DashboardPage({ onCreate, onEdit, onDelete }: DashboardPageProps) {
+export function DashboardPage({
+  onCreate,
+  onEdit,
+  onDelete,
+}: DashboardPageProps) {
   const { todos, stats, loading, toggleTodo } = useTodos();
 
-  const today = todos.filter((todo) => isToday(todo.dueDate) && !todo.completed);
+  const today = todos.filter(
+    (todo) => isToday(todo.dueDate) && !todo.completed,
+  );
   const upcoming = sortTodos(
     todos.filter((todo) => isUpcoming(todo.dueDate) && !todo.completed),
-    "dueDate"
+    "dueDate",
   ).slice(0, 5);
   const recent = sortTodos(todos, "newest").slice(0, 5);
 
@@ -31,7 +37,7 @@ export function DashboardPage({ onCreate, onEdit, onDelete }: DashboardPageProps
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <h1 className="text-2xl font-semibold">Overview</h1>
           <p className="mt-1 text-sm text-[rgb(var(--muted))]">
             A snapshot of what needs attention today.
           </p>
@@ -48,10 +54,18 @@ export function DashboardPage({ onCreate, onEdit, onDelete }: DashboardPageProps
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard label="Total tasks" value={stats?.total ?? 0} />
-        <StatCard label="Completed" value={stats?.completed ?? 0} tone="success" />
+        <StatCard
+          label="Completed"
+          value={stats?.completed ?? 0}
+          tone="success"
+        />
         <StatCard label="Pending" value={stats?.pending ?? 0} tone="accent" />
         <StatCard label="Overdue" value={stats?.overdue ?? 0} tone="danger" />
-        <StatCard label="High priority" value={stats?.highPriority ?? 0} tone="warning" />
+        <StatCard
+          label="High priority"
+          value={stats?.highPriority ?? 0}
+          tone="warning"
+        />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-3">
