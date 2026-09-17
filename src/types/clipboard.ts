@@ -7,3 +7,11 @@ export interface ClipboardItem {
   copyCount: number;
   lastCopiedAt: string;
 }
+
+export type ClipboardFilter = "all" | "pinned";
+
+export type ClipboardSort =
+  | "copyCountDesc"
+  | "copyCountAsc"
+  | "lastCopiedDesc"
+  | "lastCopiedAsc";

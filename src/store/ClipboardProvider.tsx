@@ -58,7 +58,7 @@ export function ClipboardProvider({ children }: { children: ReactNode }) {
   const copyAgain = useCallback(async (id: string) => {
     try {
       const updated = await clipboardService.copyAgain(id);
-      setItems((current) => sortClipboardItems(upsertItem(current, updated)));
+      setItems((current) => upsertItem(current, updated));
       toast.success("Copied to clipboard");
       return updated;
     } catch (error) {
@@ -84,7 +84,7 @@ export function ClipboardProvider({ children }: { children: ReactNode }) {
   const togglePin = useCallback(async (id: string) => {
     try {
       const updated = await clipboardService.togglePin(id);
-      setItems((current) => sortClipboardItems(upsertItem(current, updated)));
+      setItems((current) => upsertItem(current, updated));
       toast.success(updated.isPinned ? "Pinned" : "Unpinned");
       return updated;
     } catch (error) {
@@ -124,16 +124,4 @@ function upsertItem(items: ClipboardItem[], updated: ClipboardItem) {
     return [updated, ...items];
   }
   return items.map((item) => (item.id === updated.id ? updated : item));
-}
-
-function sortClipboardItems(items: ClipboardItem[]) {
-  return [...items].sort((a, b) => {
-    if (a.isPinned !== b.isPinned) {
-      return Number(b.isPinned) - Number(a.isPinned);
-    }
-    if (a.copyCount !== b.copyCount) {
-      return b.copyCount - a.copyCount;
-    }
-    return b.lastCopiedAt.localeCompare(a.lastCopiedAt);
-  });
 }

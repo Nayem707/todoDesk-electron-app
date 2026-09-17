@@ -1,4 +1,4 @@
-import type { ClipboardItem } from "../types/clipboard";
+import type { ClipboardFilter, ClipboardItem, ClipboardSort } from "../types/clipboard";
 import { unwrap } from "../utils/errors";
 
 function api() {
@@ -24,10 +24,51 @@ export function previewClipboardContent(content: string, max = 280) {
   return `${compact.slice(0, max)}…`;
 }
 
-export function filterClipboardItems(items: ClipboardItem[], search: string) {
-  const query = search.trim().toLowerCase();
-  if (!query) {
-    return items;
-  }
-  return items.filter((item) => item.content.toLowerCase().includes(query));
+export function queryClipboardItems(
+  items: ClipboardItem[],
+  options: {
+    search?: string;
+    filter?: ClipboardFilter;
+    sort?: ClipboardSort;
+  } = {}
+) {
+  const query = (options.search ?? "").trim().toLowerCase();
+  const filter = options.filter ?? "all";
+  const sort = options.sort ?? "lastCopiedDesc";
+
+  const filtered = items.filter((item) => {
+    if (filter === "pinned" && !item.isPinned) {
+      return false;
+    }
+    if (!query) {
+      return true;
+    }
+    return item.content.toLowerCase().includes(query);
+  });
+
+  return [...filtered].sort((a, b) => {
+    switch (sort) {
+      case "copyCountAsc":
+        if (a.copyCount !== b.copyCount) {
+          return a.copyCount - b.copyCount;
+        }
+        return b.lastCopiedAt.localeCompare(a.lastCopiedAt);
+      case "copyCountDesc":
+        if (a.copyCount !== b.copyCount) {
+          return b.copyCount - a.copyCount;
+        }
+        return b.lastCopiedAt.localeCompare(a.lastCopiedAt);
+      case "lastCopiedAsc":
+        if (a.lastCopiedAt !== b.lastCopiedAt) {
+          return a.lastCopiedAt.localeCompare(b.lastCopiedAt);
+        }
+        return b.copyCount - a.copyCount;
+      case "lastCopiedDesc":
+      default:
+        if (a.lastCopiedAt !== b.lastCopiedAt) {
+          return b.lastCopiedAt.localeCompare(a.lastCopiedAt);
+        }
+        return b.copyCount - a.copyCount;
+    }
+  });
 }

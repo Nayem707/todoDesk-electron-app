@@ -154,9 +154,9 @@ const ordered = migrated.exec(`
   SELECT items.content
   FROM clipboard_items items
   INNER JOIN clipboard_usage usage ON usage.clipboard_item_id = items.id
-  ORDER BY items.is_pinned DESC, usage.copy_count DESC, usage.last_copied_at DESC
+  ORDER BY usage.last_copied_at DESC, usage.copy_count DESC
 `)[0].values.map((row) => row[0]);
-if (ordered.join(" | ") !== "docker compose up | npm install express | git status") {
+if (ordered.join(" | ") !== "docker compose up | git status | npm install express") {
   throw new Error(`Clipboard sort mismatch: ${ordered.join(" | ")}`);
 }
 

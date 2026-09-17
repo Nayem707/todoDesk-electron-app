@@ -82,7 +82,7 @@ function withTransaction(work) {
 export function getAllClipboardItems() {
   return queryAll(
     `${LIST_SQL}
-     ORDER BY items.is_pinned DESC, usage.copy_count DESC, usage.last_copied_at DESC`
+     ORDER BY usage.last_copied_at DESC, usage.copy_count DESC`
   ).map(mapRow);
 }
 
