@@ -3,17 +3,7 @@ import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Columns2,
-  Copy,
-  Eraser,
-  Eye,
-  List,
-  Pencil,
-  Save,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, Copy, Eraser, List, Pencil, Save, Trash2 } from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
 import { Tabs } from "../components/Tabs";
 import { markdownService, previewMarkdownContent } from "../services/markdownService";
@@ -27,7 +17,6 @@ type Screen = "editor" | "list";
 
 let draft = "";
 let draftId: string | null = null;
-let draftPreview = false;
 
 const PANE_TABS: { id: Pane; label: string }[] = [
   { id: "edit", label: "Edit" },
@@ -38,7 +27,6 @@ export function MarkdownPage() {
   const [screen, setScreen] = useState<Screen>("editor");
   const [source, setSource] = useState(draft);
   const [activeId, setActiveId] = useState<string | null>(draftId);
-  const [splitMode, setSplitMode] = useState(draftPreview);
   const [pane, setPane] = useState<Pane>("edit");
   const [documents, setDocuments] = useState<MarkdownDocument[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -125,13 +113,6 @@ export function MarkdownPage() {
     }
   };
 
-  const toggleSplit = () => {
-    const next = !splitMode;
-    draftPreview = next;
-    setSplitMode(next);
-    setPane("edit");
-  };
-
   if (screen === "list") {
     return (
       <div className="mx-auto flex h-[calc(100vh-40px)] min-h-0 max-w-4xl flex-col space-y-5 p-6">
@@ -198,9 +179,7 @@ export function MarkdownPage() {
         <div>
           <h1 className="text-2xl font-semibold">Markdown</h1>
           <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-            {splitMode
-              ? "Split view: edit on the left, live preview on the right."
-              : "Write or paste Markdown, then save it or open preview."}
+            Edit on the left, live preview on the right.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -232,47 +211,21 @@ export function MarkdownPage() {
             <Save size={15} />
             Save
           </ActionButton>
-          <button
-            type="button"
-            onClick={toggleSplit}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
-              splitMode
-                ? "bg-[rgb(var(--accent))] text-[rgb(var(--accent-foreground))]"
-                : "border border-[rgb(var(--border))] hover:bg-black/5 dark:hover:bg-white/10"
-            )}
-          >
-            {splitMode ? <Columns2 size={15} /> : <Eye size={15} />}
-            {splitMode ? "Editor" : "Preview"}
-          </button>
         </div>
       </div>
 
-      {splitMode && (
-        <div className="mb-3 xl:hidden">
-          <Tabs
-            items={PANE_TABS}
-            value={pane}
-            onChange={setPane}
-            ariaLabel="Markdown editor or preview"
-          />
-        </div>
-      )}
-
-      <div
-        className={cn(
-          "grid min-h-0 flex-1 gap-4",
-          splitMode && "xl:grid-cols-2"
-        )}
-      >
-        <EditorPane
-          source={source}
-          onChange={updateSource}
-          hidden={splitMode && pane === "preview"}
+      <div className="mb-3 xl:hidden">
+        <Tabs
+          items={PANE_TABS}
+          value={pane}
+          onChange={setPane}
+          ariaLabel="Markdown editor or preview"
         />
-        {splitMode && (
-          <PreviewPane source={source} hidden={pane === "edit"} />
-        )}
+      </div>
+
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-2">
+        <EditorPane source={source} onChange={updateSource} hidden={pane === "preview"} />
+        <PreviewPane source={source} hidden={pane === "edit"} />
       </div>
     </div>
   );
@@ -398,9 +351,7 @@ function SavedMarkdownCard({
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="text-sm font-semibold leading-5">{document.title}</h3>
-          </div>
+          <h3 className="text-sm font-semibold leading-5">{document.title}</h3>
           <p className="mt-1 line-clamp-2 text-sm text-[rgb(var(--muted))]">
             {preview}
           </p>
