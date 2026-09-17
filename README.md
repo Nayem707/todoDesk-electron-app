@@ -2,7 +2,7 @@
 
 TodoDesk is a desktop todo application. It runs as a native window on Windows, macOS, and Linux. Tasks are stored on your computer, not in the cloud.
 
-You can create, edit, complete, search, filter, and sort tasks. Each task can have a priority, due date, description, and tags. The app also includes an overview, a clipboard history manager, settings, light/dark theme, and a custom title bar (minimize, maximize, close).
+You can create, edit, complete, search, filter, and sort tasks. Each task can have a priority, due date, description, and tags. The app also includes an overview, a clipboard history manager, a Markdown editor with live preview, settings, light/dark theme, and a custom title bar (minimize, maximize, close).
 
 This README is written for beginners. You do not need prior Electron experience to follow the setup steps.
 
@@ -17,6 +17,7 @@ This README is written for beginners. You do not need prior Electron experience 
 | **Vite**               | Fast development server and production bundler for the UI        |
 | **Tailwind CSS**       | Styling                                                          |
 | **sql.js (SQLite)**    | Local database stored as a file on disk                          |
+| **react-markdown**     | Live Markdown preview (GFM + line breaks)                        |
 | **IPC + preload**      | Safe communication between the UI and the desktop/main process   |
 
 Important security rule: the React UI **cannot** talk to the file system or database directly. Only the Electron main process can. The UI asks for data through a small, explicit API.
@@ -106,11 +107,11 @@ Stop the app with `Ctrl+C` in the terminal, or close the TodoDesk window.
 When the window opens you will see:
 
 - A **custom title bar** (minimize, maximize/restore, close)
-- A **sidebar** with Todo, Clipboard, and Settings
+- A **sidebar** with Todo, Clipboard, Markdown, and Settings
 - A **New Task** button
 - **Todo tabs** on the Todo page (Overview, All Tasks, Today, Upcoming, Completed, High Priority)
 
-Tasks and clipboard history persist after you close and reopen the app.
+Tasks, clipboard history, and saved Markdown documents persist after you close and reopen the app.
 
 ### Create a task
 
@@ -154,20 +155,56 @@ Click **Todo** in the sidebar. The page uses tabs for the old sidebar views:
 | Completed     | Finished tasks                                    |
 | High Priority | Incomplete high-priority tasks                    |
 
-The active tab is underlined. Returning from Clipboard or Settings keeps your last Todo tab.
+The active tab is underlined. Returning from Clipboard, Markdown, or Settings keeps your last Todo tab.
 
 ### Clipboard
 
 Click **Clipboard** in the sidebar. TodoDesk watches the system clipboard and saves new copied text locally.
 
 - Identical text is stored once; the use count goes up instead
-- The list is sorted by use count (then last copied time)
 - Click a card to copy that text again (this also increases the count, without adding a duplicate)
-- Pin items to keep them at the top
-- Delete removes an item immediately (no confirmation)
-- Search filters clipboard content without changing sort order
+- Pin / unpin items; delete removes an item immediately (no confirmation)
+- Search filters clipboard content
+
+**Filter / sort bar** (under search):
+
+| Control | Behavior |
+| ------- | -------- |
+| **All** | Show every clipboard item (default) |
+| **Pin** | Show only pinned items |
+| **Sort** | Last Copied ↓ / ↑, Copy Count ↓ / ↑ |
+
+Default state when the page opens:
+
+- **All** is selected
+- Sort is **Last Copied ↓** (`last_copied_at` newest first)
+
+So the most recently copied item appears at the top. After **Copy Again**, that item moves to the top when using the default sort. Sorting only changes the display order; it does not rewrite database rows.
 
 Copying from inside TodoDesk (**click a card**) does not create a second history row.
+
+### Markdown
+
+Click **Markdown** in the sidebar for a live Markdown editor.
+
+- Split layout by default: **Editor** on the left, **Preview** on the right
+- On smaller screens, use the **Edit / Preview** tabs to switch panes
+- Actions: **Saved list**, **Copy**, **Clear**, **Save**
+- Preview supports headings, bold/italic, links, lists, blockquotes, code, tables, and more (`react-markdown` + GFM)
+
+**Save**
+
+- Saves the current content into the local SQLite database
+- Title is taken from the first heading or first line of text
+- Saving the same content again updates the existing document instead of creating a duplicate
+- Opening a saved item and saving again updates that document
+
+**Saved list**
+
+- Opens a clipboard-style list of saved documents
+- Each card shows title, snippet, updated time, **Edit**, and **Delete**
+- **Edit** loads the document into the editor
+- **Back to editor** returns to the split view
 
 ### Keyboard shortcuts
 
@@ -180,7 +217,7 @@ Copying from inside TodoDesk (**click a card**) does not create a second history
 ### Settings
 
 - **Theme:** Light, Dark, or System
-- **Confirm before deleting tasks** (task delete only; clipboard delete is instant)
+- **Confirm before deleting tasks** (task delete only; clipboard and Markdown delete are instant)
 - **Clear completed** or **Clear all tasks** (both ask for confirmation)
 - App name, version, and storage location
 
@@ -195,7 +232,7 @@ Electron main process          (Node.js: window, files, SQLite)
         ↓
 Preload script                 (contextBridge — the only bridge)
         ↓
-Secure APIs                    window.todoAPI / settingsAPI / clipboardAPI / windowAPI
+Secure APIs                    window.todoAPI / settingsAPI / clipboardAPI / markdownAPI / windowAPI
         ↓
 React renderer                 (the UI you see)
 ```
@@ -226,7 +263,7 @@ The database is the source of truth. React state is only the current UI snapshot
 app/
 ├── electron/                 # Desktop / main process
 │   ├── main.js               # Window, security, app lifecycle, clipboard watcher start/stop
-│   ├── preload.cjs           # Exposes window.todoAPI, settingsAPI, clipboardAPI, windowAPI
+│   ├── preload.cjs           # Exposes todoAPI, settingsAPI, clipboardAPI, markdownAPI, windowAPI
 │   ├── clipboardWatcher.js   # Polls OS clipboard; ignores TodoDesk “copy again”
 │   ├── windowState.js        # Remembers window size and position
 │   ├── ipc/
@@ -234,27 +271,28 @@ app/
 │   └── database/
 │       ├── connection.js     # Open / save the SQLite file
 │       ├── migrations.js     # Schema versioning
-│       ├── todoRepository.js # Todo queries
-│       ├── todoValidation.js # Server-side validation
+│       ├── todoRepository.js
+│       ├── todoValidation.js
 │       ├── clipboardRepository.js
+│       ├── markdownRepository.js
 │       └── settingsRepository.js
 ├── src/                      # React UI (renderer)
-│   ├── components/           # Reusable UI (cards, modal, dialogs, tabs)
-│   ├── pages/                # Todo (Overview + task tabs), Clipboard, Settings
+│   ├── components/           # Cards, modal, dialogs, tabs, clipboard filter bar
+│   ├── pages/                # Todo, Clipboard, Markdown, Settings
 │   ├── layouts/              # Title bar, sidebar, app shell
 │   ├── hooks/
 │   ├── services/             # Calls the preload APIs (no DB code here)
 │   ├── store/                # React context for todos, clipboard, and settings
-│   ├── utils/                # Dates, filters, validation helpers
+│   ├── utils/
 │   ├── types/
 │   ├── App.tsx
 │   └── main.tsx
 ├── scripts/
 │   ├── dev-electron.mjs      # Waits for Vite, then launches Electron
-│   ├── smoke-db.mjs          # SQLite CRUD + clipboard schema smoke test
+│   ├── smoke-db.mjs          # SQLite CRUD + clipboard + markdown smoke tests
 │   └── inspect-db.mjs        # Print tables from the live database file
-├── public/                   # Static files copied into the UI build
-├── build/icon.png            # Installer / app icon
+├── public/
+├── build/icon.png
 ├── index.html
 ├── vite.config.ts
 ├── tailwind.config.js
@@ -281,6 +319,10 @@ window.clipboardAPI.copyAgain(id);
 window.clipboardAPI.deleteItem(id);
 window.clipboardAPI.togglePin(id);
 
+window.markdownAPI.getDocuments();
+window.markdownAPI.saveDocument({ id, content });
+window.markdownAPI.deleteDocument(id);
+
 window.windowAPI.minimize();
 window.windowAPI.maximize();
 window.windowAPI.close();
@@ -290,7 +332,7 @@ window.windowAPI.close();
 
 ## Database
 
-TodoDesk uses **SQLite** through [sql.js](https://sql.js.org/). The database lives in a file on disk. Closing the app does not delete your tasks.
+TodoDesk uses **SQLite** through [sql.js](https://sql.js.org/). The database lives in a file on disk. Closing the app does not delete your data.
 
 ### Where the file is stored
 
@@ -322,7 +364,7 @@ updatedAt     ISO timestamp
 
 Settings (theme, confirm-before-delete) are stored in a separate `settings` table.
 
-Clipboard history uses two tables:
+### Clipboard tables
 
 ```text
 clipboard_items
@@ -334,6 +376,15 @@ clipboard_usage
 
 Copying the same text again increments `copy_count` and updates `last_copied_at`. It does not insert another `clipboard_items` row.
 
+### Markdown documents
+
+```text
+markdown_documents
+  id, title, content, created_at, updated_at
+```
+
+Saving Markdown uses an auto-generated title (first heading or first line). Duplicate identical content updates the existing row instead of inserting a new one.
+
 ### How writes work
 
 1. The main process keeps SQLite in memory (sql.js)
@@ -342,13 +393,19 @@ Copying the same text again increments `copy_count` and updates `last_copied_at`
 
 Schema changes go through `electron/database/migrations.js` so existing installs can upgrade safely.
 
+Current migrations:
+
+1. Todos + settings
+2. Clipboard history
+3. Markdown documents
+
 ### Inspect or test the database
 
 ```bash
 npm run test:db
 ```
 
-To print the live app database (migrations, settings, todos, clipboard):
+To print the live app database (migrations, settings, todos, clipboard, markdown):
 
 ```bash
 node scripts/inspect-db.mjs
@@ -406,14 +463,14 @@ Wait a few seconds. Electron starts only after `http://127.0.0.1:5173` responds.
 **Electron binary missing**  
 Approve install scripts (see [Installation](#installation)) and run `npm install` again.
 
-**Tasks disappeared**  
+**Tasks / clipboard / Markdown disappeared**  
 They are stored in the user-data folder above, not in the project directory. Clearing that folder (or using another Windows user account) looks like an empty app.
 
 **Port 5173 already in use**  
 Another Vite process is still running (often from a previous `npm run dev` that was not stopped). Close that terminal with `Ctrl+C`, or end the Node process using port 5173, then start `npm run dev` again. Vite is configured to use port `5173` only.
 
 **UI looks like a website in the browser**  
-Open the **Electron window**, not a tab at `http://127.0.0.1:5173`. The browser tab does not have `window.todoAPI` or `window.clipboardAPI`, so saving tasks or clipboard history will fail there.
+Open the **Electron window**, not a tab at `http://127.0.0.1:5173`. The browser tab does not have `window.todoAPI`, `window.clipboardAPI`, or `window.markdownAPI`, so saving data will fail there.
 
 ---
 
