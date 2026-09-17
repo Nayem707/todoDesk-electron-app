@@ -3,10 +3,21 @@ import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Eraser, List, Pencil, Save, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  Eraser,
+  List,
+  Pencil,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
 import { Tabs } from "../components/Tabs";
-import { markdownService, previewMarkdownContent } from "../services/markdownService";
+import {
+  markdownService,
+  previewMarkdownContent,
+} from "../services/markdownService";
 import type { MarkdownDocument } from "../types/markdown";
 import { cn } from "../utils/cn";
 import { formatDateTime } from "../utils/dates";
@@ -176,12 +187,6 @@ export function MarkdownPage() {
   return (
     <div className="flex h-[calc(100vh-40px)] min-h-0 flex-col p-6">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Markdown</h1>
-          <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-            Edit on the left, live preview on the right.
-          </p>
-        </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -224,7 +229,11 @@ export function MarkdownPage() {
       </div>
 
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-2">
-        <EditorPane source={source} onChange={updateSource} hidden={pane === "preview"} />
+        <EditorPane
+          source={source}
+          onChange={updateSource}
+          hidden={pane === "preview"}
+        />
         <PreviewPane source={source} hidden={pane === "edit"} />
       </div>
     </div>
@@ -262,7 +271,7 @@ function EditorPane({
     <section
       className={cn(
         "min-h-0 flex-col overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))]",
-        hidden ? "hidden xl:flex" : "flex"
+        hidden ? "hidden xl:flex" : "flex",
       )}
     >
       <p className="shrink-0 border-b border-[rgb(var(--border))] px-4 py-2 text-xs font-medium uppercase tracking-wide text-[rgb(var(--muted))]">
@@ -285,7 +294,7 @@ function PreviewPane({ source, hidden }: { source: string; hidden: boolean }) {
     <section
       className={cn(
         "min-h-0 flex-col overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))]",
-        hidden ? "hidden xl:flex" : "flex"
+        hidden ? "hidden xl:flex" : "flex",
       )}
     >
       <p className="shrink-0 border-b border-[rgb(var(--border))] px-4 py-2 text-xs font-medium uppercase tracking-wide text-[rgb(var(--muted))]">
@@ -346,7 +355,7 @@ function SavedMarkdownCard({
         "rounded-2xl border bg-[rgb(var(--surface))] p-4 shadow-card transition hover:border-[rgb(var(--accent))]/40 dark:shadow-card-dark",
         active
           ? "border-[rgb(var(--accent))]/50"
-          : "border-[rgb(var(--border))]"
+          : "border-[rgb(var(--border))]",
       )}
     >
       <div className="flex items-start gap-3">
