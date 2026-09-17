@@ -2,7 +2,7 @@
 
 TodoDesk is a desktop todo application. It runs as a native window on Windows, macOS, and Linux. Tasks are stored on your computer, not in the cloud.
 
-You can create, edit, complete, search, filter, and sort tasks. Each task can have a priority, due date, description, and tags. The app also includes a dashboard, settings, light/dark theme, and a custom title bar (minimize, maximize, close).
+You can create, edit, complete, search, filter, and sort tasks. Each task can have a priority, due date, description, and tags. The app also includes an overview, a clipboard history manager, settings, light/dark theme, and a custom title bar (minimize, maximize, close).
 
 This README is written for beginners. You do not need prior Electron experience to follow the setup steps.
 
@@ -106,10 +106,11 @@ Stop the app with `Ctrl+C` in the terminal, or close the TodoDesk window.
 When the window opens you will see:
 
 - A **custom title bar** (minimize, maximize/restore, close)
-- A **sidebar** with Dashboard, task views, and Settings
+- A **sidebar** with Todo, Clipboard, and Settings
 - A **New Task** button
+- **Todo tabs** on the Todo page (Overview, All Tasks, Today, Upcoming, Completed, High Priority)
 
-Tasks persist after you close and reopen the app.
+Tasks and clipboard history persist after you close and reopen the app.
 
 ### Create a task
 
@@ -140,17 +141,33 @@ On task pages you can:
 - **Filter:** All, Pending, Completed, High / Medium / Low Priority, Overdue
 - **Sort:** Newest, Oldest, Due Date, Priority, Alphabetical
 
-### Sidebar views
+### Todo tabs
 
-| View          | Shows                                             |
+Click **Todo** in the sidebar. The page uses tabs for the old sidebar views:
+
+| Tab           | Shows                                             |
 | ------------- | ------------------------------------------------- |
-| Dashboard     | Counts plus Today, Upcoming, and Recently created |
+| Overview      | Counts plus Today, Upcoming, and Recently created |
 | All Tasks     | Every task                                        |
 | Today         | Incomplete tasks due today                        |
 | Upcoming      | Incomplete tasks due after today                  |
 | Completed     | Finished tasks                                    |
 | High Priority | Incomplete high-priority tasks                    |
-| Settings      | Theme, safety, and data tools                     |
+
+The active tab is underlined. Returning from Clipboard or Settings keeps your last Todo tab.
+
+### Clipboard
+
+Click **Clipboard** in the sidebar. TodoDesk watches the system clipboard and saves new copied text locally.
+
+- Identical text is stored once; the use count goes up instead
+- The list is sorted by use count (then last copied time)
+- Click a card to copy that text again (this also increases the count, without adding a duplicate)
+- Pin items to keep them at the top
+- Delete removes an item immediately (no confirmation)
+- Search filters clipboard content without changing sort order
+
+Copying from inside TodoDesk (**click a card**) does not create a second history row.
 
 ### Keyboard shortcuts
 
@@ -163,7 +180,7 @@ On task pages you can:
 ### Settings
 
 - **Theme:** Light, Dark, or System
-- **Confirm before deleting tasks**
+- **Confirm before deleting tasks** (task delete only; clipboard delete is instant)
 - **Clear completed** or **Clear all tasks** (both ask for confirmation)
 - App name, version, and storage location
 
@@ -178,7 +195,7 @@ Electron main process          (Node.js: window, files, SQLite)
         ↓
 Preload script                 (contextBridge — the only bridge)
         ↓
-Secure APIs                    window.todoAPI / settingsAPI / windowAPI
+Secure APIs                    window.todoAPI / settingsAPI / clipboardAPI / windowAPI
         ↓
 React renderer                 (the UI you see)
 ```
@@ -208,8 +225,9 @@ The database is the source of truth. React state is only the current UI snapshot
 ```text
 app/
 ├── electron/                 # Desktop / main process
-│   ├── main.js               # Window, security, app lifecycle
-│   ├── preload.cjs           # Exposes window.todoAPI, settingsAPI, windowAPI
+│   ├── main.js               # Window, security, app lifecycle, clipboard watcher start/stop
+│   ├── preload.cjs           # Exposes window.todoAPI, settingsAPI, clipboardAPI, windowAPI
+│   ├── clipboardWatcher.js   # Polls OS clipboard; ignores TodoDesk “copy again”
 │   ├── windowState.js        # Remembers window size and position
 │   ├── ipc/
 │   │   └── register.js       # IPC handlers (errors wrapped, never swallowed)
@@ -218,21 +236,22 @@ app/
 │       ├── migrations.js     # Schema versioning
 │       ├── todoRepository.js # Todo queries
 │       ├── todoValidation.js # Server-side validation
+│       ├── clipboardRepository.js
 │       └── settingsRepository.js
 ├── src/                      # React UI (renderer)
-│   ├── components/           # Reusable UI (cards, modal, dialogs)
-│   ├── pages/                # Dashboard, Tasks, Settings
+│   ├── components/           # Reusable UI (cards, modal, dialogs, tabs)
+│   ├── pages/                # Todo (Overview + task tabs), Clipboard, Settings
 │   ├── layouts/              # Title bar, sidebar, app shell
 │   ├── hooks/
 │   ├── services/             # Calls the preload APIs (no DB code here)
-│   ├── store/                # React context for todos and settings
+│   ├── store/                # React context for todos, clipboard, and settings
 │   ├── utils/                # Dates, filters, validation helpers
 │   ├── types/
 │   ├── App.tsx
 │   └── main.tsx
 ├── scripts/
 │   ├── dev-electron.mjs      # Waits for Vite, then launches Electron
-│   ├── smoke-db.mjs          # SQLite CRUD smoke test
+│   ├── smoke-db.mjs          # SQLite CRUD + clipboard schema smoke test
 │   └── inspect-db.mjs        # Print tables from the live database file
 ├── public/                   # Static files copied into the UI build
 ├── build/icon.png            # Installer / app icon
@@ -256,6 +275,11 @@ window.todoAPI.getStats();
 
 window.settingsAPI.getSettings();
 window.settingsAPI.updateSettings(patch);
+
+window.clipboardAPI.getItems();
+window.clipboardAPI.copyAgain(id);
+window.clipboardAPI.deleteItem(id);
+window.clipboardAPI.togglePin(id);
 
 window.windowAPI.minimize();
 window.windowAPI.maximize();
@@ -298,6 +322,18 @@ updatedAt     ISO timestamp
 
 Settings (theme, confirm-before-delete) are stored in a separate `settings` table.
 
+Clipboard history uses two tables:
+
+```text
+clipboard_items
+  id, content (unique), is_pinned, created_at, updated_at
+
+clipboard_usage
+  id, clipboard_item_id, copy_count, last_copied_at
+```
+
+Copying the same text again increments `copy_count` and updates `last_copied_at`. It does not insert another `clipboard_items` row.
+
 ### How writes work
 
 1. The main process keeps SQLite in memory (sql.js)
@@ -312,7 +348,7 @@ Schema changes go through `electron/database/migrations.js` so existing installs
 npm run test:db
 ```
 
-To print the live app database (migrations, settings, todos):
+To print the live app database (migrations, settings, todos, clipboard):
 
 ```bash
 node scripts/inspect-db.mjs
@@ -374,10 +410,10 @@ Approve install scripts (see [Installation](#installation)) and run `npm install
 They are stored in the user-data folder above, not in the project directory. Clearing that folder (or using another Windows user account) looks like an empty app.
 
 **Port 5173 already in use**  
-Stop the other Vite/Electron process, then start `npm run dev` again. Vite is configured to use port `5173` only.
+Another Vite process is still running (often from a previous `npm run dev` that was not stopped). Close that terminal with `Ctrl+C`, or end the Node process using port 5173, then start `npm run dev` again. Vite is configured to use port `5173` only.
 
 **UI looks like a website in the browser**  
-Open the **Electron window**, not a tab at `http://127.0.0.1:5173`. The browser tab does not have `window.todoAPI`, so saving tasks will fail there.
+Open the **Electron window**, not a tab at `http://127.0.0.1:5173`. The browser tab does not have `window.todoAPI` or `window.clipboardAPI`, so saving tasks or clipboard history will fail there.
 
 ---
 
