@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Toaster } from "sonner";
 import { AppShell } from "./layouts/AppShell";
+import { ClipboardPage } from "./pages/ClipboardPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TasksPage } from "./pages/TasksPage";
@@ -8,6 +9,7 @@ import { TodoModal } from "./components/TodoModal";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { SettingsProvider, useSettings } from "./store/SettingsProvider";
+import { ClipboardProvider } from "./store/ClipboardProvider";
 import { TodoProvider, useTodos } from "./store/TodoProvider";
 import type { AppView, Todo } from "./types/todo";
 
@@ -43,7 +45,7 @@ function AppFrame() {
 
   useKeyboardShortcuts({
     onNew: () => {
-      if (view !== "settings") {
+      if (view !== "settings" && view !== "clipboard") {
         openCreate();
       }
     },
@@ -66,6 +68,9 @@ function AppFrame() {
     }
     if (view === "settings") {
       return <SettingsPage />;
+    }
+    if (view === "clipboard") {
+      return <ClipboardPage searchRef={searchRef} />;
     }
     return (
       <TasksPage
@@ -127,7 +132,9 @@ export default function App() {
   return (
     <SettingsProvider>
       <TodoProvider>
-        <AppFrame />
+        <ClipboardProvider>
+          <AppFrame />
+        </ClipboardProvider>
       </TodoProvider>
     </SettingsProvider>
   );

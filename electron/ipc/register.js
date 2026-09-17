@@ -1,6 +1,8 @@
 import { ipcMain } from "electron";
 import * as todoRepository from "../database/todoRepository.js";
 import * as settingsRepository from "../database/settingsRepository.js";
+import * as clipboardRepository from "../database/clipboardRepository.js";
+import { writeClipboardInternal } from "../clipboardWatcher.js";
 
 function handle(channel, handler) {
   ipcMain.handle(channel, async (_event, ...args) => {
@@ -34,6 +36,18 @@ export function registerIpcHandlers(getMainWindow) {
 
   handle("settings:get", () => settingsRepository.getSettings());
   handle("settings:update", (patch) => settingsRepository.updateSettings(patch));
+
+  handle("clipboard:getAll", () => clipboardRepository.getAllClipboardItems());
+  handle("clipboard:copyAgain", (id) => {
+    const existing = clipboardRepository.getClipboardItemById(id);
+    if (!existing) {
+      throw new Error("Clipboard item not found.");
+    }
+    writeClipboardInternal(existing.content);
+    return clipboardRepository.copyClipboardItemAgain(id);
+  });
+  handle("clipboard:delete", (id) => clipboardRepository.deleteClipboardItem(id));
+  handle("clipboard:togglePin", (id) => clipboardRepository.toggleClipboardPin(id));
 
   void getMainWindow;
 }

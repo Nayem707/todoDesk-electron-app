@@ -52,6 +52,44 @@ const MIGRATIONS = [
       insert.free();
     },
   },
+  {
+    version: 2,
+    name: "create-clipboard-history",
+    up(db) {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS clipboard_items (
+          id TEXT PRIMARY KEY,
+          content TEXT NOT NULL UNIQUE,
+          is_pinned INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+
+      db.run(`
+        CREATE TABLE IF NOT EXISTS clipboard_usage (
+          id TEXT PRIMARY KEY,
+          clipboard_item_id TEXT NOT NULL UNIQUE,
+          copy_count INTEGER NOT NULL DEFAULT 0,
+          last_copied_at TEXT NOT NULL,
+          FOREIGN KEY (clipboard_item_id) REFERENCES clipboard_items(id) ON DELETE CASCADE
+        );
+      `);
+
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_clipboard_items_pinned
+          ON clipboard_items(is_pinned);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_clipboard_usage_copy_count
+          ON clipboard_usage(copy_count);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_clipboard_usage_last_copied
+          ON clipboard_usage(last_copied_at);
+      `);
+    },
+  },
 ];
 
 /**

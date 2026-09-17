@@ -64,7 +64,7 @@ export function SettingsPage() {
       <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-5">
         <h2 className="text-sm font-semibold">Data</h2>
         <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-          Tasks are stored locally in SQLite on this computer.
+          Tasks and clipboard history are stored locally in SQLite on this computer.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button

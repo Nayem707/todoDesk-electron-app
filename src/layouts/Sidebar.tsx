@@ -1,6 +1,7 @@
 import {
   CalendarClock,
   CheckCircle2,
+  ClipboardList,
   Flame,
   LayoutDashboard,
   ListTodo,
@@ -9,6 +10,7 @@ import {
   Sun,
 } from "lucide-react";
 import { AppMark } from "./TitleBar";
+import { useClipboard } from "../store/ClipboardProvider";
 import { useTodos } from "../store/TodoProvider";
 import type { AppView } from "../types/todo";
 import { cn } from "../utils/cn";
@@ -20,7 +22,7 @@ interface SidebarProps {
   onCreate: () => void;
 }
 
-const NAV: { id: AppView; label: string; icon: typeof LayoutDashboard }[] = [
+const TASK_NAV: { id: AppView; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "all", label: "All Tasks", icon: ListTodo },
   { id: "today", label: "Today", icon: Sun },
@@ -29,8 +31,13 @@ const NAV: { id: AppView; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "high", label: "High Priority", icon: Flame },
 ];
 
+const TOOL_NAV: { id: AppView; label: string; icon: typeof LayoutDashboard }[] = [
+  { id: "clipboard", label: "Clipboard", icon: ClipboardList },
+];
+
 export function Sidebar({ view, onViewChange, onCreate }: SidebarProps) {
   const { todos, stats } = useTodos();
+  const { items: clipboardItems } = useClipboard();
 
   const counts: Partial<Record<AppView, number>> = {
     all: stats?.pending ?? 0,
@@ -38,6 +45,7 @@ export function Sidebar({ view, onViewChange, onCreate }: SidebarProps) {
     upcoming: todos.filter((todo) => isUpcoming(todo.dueDate) && !todo.completed).length,
     completed: stats?.completed ?? 0,
     high: stats?.highPriority ?? 0,
+    clipboard: clipboardItems.length,
   };
 
   return (
@@ -61,32 +69,26 @@ export function Sidebar({ view, onViewChange, onCreate }: SidebarProps) {
       </div>
 
       <nav className="flex-1 space-y-0.5 px-3">
-        {NAV.map((item) => {
-          const Icon = item.icon;
-          const active = view === item.id;
-          const count = counts[item.id];
-          return (
-            <button
+        {TASK_NAV.map((item) => (
+          <NavButton
+            key={item.id}
+            item={item}
+            active={view === item.id}
+            count={counts[item.id]}
+            onClick={() => onViewChange(item.id)}
+          />
+        ))}
+        <div className="py-2">
+          {TOOL_NAV.map((item) => (
+            <NavButton
               key={item.id}
-              type="button"
+              item={item}
+              active={view === item.id}
+              count={counts[item.id]}
               onClick={() => onViewChange(item.id)}
-              className={cn(
-                "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition",
-                active
-                  ? "bg-[rgb(var(--surface))] font-medium text-[rgb(var(--text))] shadow-sm"
-                  : "text-[rgb(var(--muted))] hover:bg-black/5 hover:text-[rgb(var(--text))] dark:hover:bg-white/5"
-              )}
-            >
-              <Icon size={16} />
-              <span className="flex-1">{item.label}</span>
-              {typeof count === "number" && item.id !== "dashboard" && (
-                <span className="rounded-full bg-black/5 px-1.5 text-[11px] tabular-nums dark:bg-white/10">
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+            />
+          ))}
+        </div>
       </nav>
 
       <div className="px-3 pb-4">
@@ -95,21 +97,47 @@ export function Sidebar({ view, onViewChange, onCreate }: SidebarProps) {
             {stats?.overdue} overdue {stats?.overdue === 1 ? "task" : "tasks"}
           </p>
         )}
-        <button
-          type="button"
+        <NavButton
+          item={{ id: "settings", label: "Settings", icon: Settings }}
+          active={view === "settings"}
           onClick={() => onViewChange("settings")}
-          className={cn(
-            "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition",
-            view === "settings"
-              ? "bg-[rgb(var(--surface))] font-medium shadow-sm"
-              : "text-[rgb(var(--muted))] hover:bg-black/5 hover:text-[rgb(var(--text))] dark:hover:bg-white/5"
-          )}
-        >
-          <Settings size={16} />
-          Settings
-        </button>
+        />
       </div>
     </aside>
+  );
+}
+
+function NavButton({
+  item,
+  active,
+  count,
+  onClick,
+}: {
+  item: { id: AppView; label: string; icon: typeof LayoutDashboard };
+  active: boolean;
+  count?: number;
+  onClick: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition",
+        active
+          ? "bg-[rgb(var(--surface))] font-medium text-[rgb(var(--text))] shadow-sm"
+          : "text-[rgb(var(--muted))] hover:bg-black/5 hover:text-[rgb(var(--text))] dark:hover:bg-white/5"
+      )}
+    >
+      <Icon size={16} />
+      <span className="flex-1">{item.label}</span>
+      {typeof count === "number" && item.id !== "dashboard" && (
+        <span className="rounded-full bg-black/5 px-1.5 text-[11px] tabular-nums dark:bg-white/10">
+          {count}
+        </span>
+      )}
+    </button>
   );
 }
 

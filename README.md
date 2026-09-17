@@ -10,14 +10,14 @@ This README is written for beginners. You do not need prior Electron experience 
 
 ## What this project uses
 
-| Piece | Role |
-| --- | --- |
-| **Electron** | Turns the web UI into a desktop app (window, menus, local files) |
-| **React + TypeScript** | The user interface |
-| **Vite** | Fast development server and production bundler for the UI |
-| **Tailwind CSS** | Styling |
-| **sql.js (SQLite)** | Local database stored as a file on disk |
-| **IPC + preload** | Safe communication between the UI and the desktop/main process |
+| Piece                  | Role                                                             |
+| ---------------------- | ---------------------------------------------------------------- |
+| **Electron**           | Turns the web UI into a desktop app (window, menus, local files) |
+| **React + TypeScript** | The user interface                                               |
+| **Vite**               | Fast development server and production bundler for the UI        |
+| **Tailwind CSS**       | Styling                                                          |
+| **sql.js (SQLite)**    | Local database stored as a file on disk                          |
+| **IPC + preload**      | Safe communication between the UI and the desktop/main process   |
 
 Important security rule: the React UI **cannot** talk to the file system or database directly. Only the Electron main process can. The UI asks for data through a small, explicit API.
 
@@ -85,15 +85,15 @@ Leave the terminal open while you work. If you change React files, the window up
 
 ### Useful scripts
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Run the desktop app for development |
-| `npm run build` | Type-check TypeScript and build the UI for production |
-| `npm run test:db` | Run a small SQLite create/read/update/delete smoke test |
-| `npm run dist` | Build the UI and package an installer for your current OS |
-| `npm run dist:win` | Package a Windows `.exe` installer |
-| `npm run dist:mac` | Package a macOS `.dmg` |
-| `npm run dist:linux` | Package a Linux AppImage |
+| Command              | What it does                                              |
+| -------------------- | --------------------------------------------------------- |
+| `npm run dev`        | Run the desktop app for development                       |
+| `npm run build`      | Type-check TypeScript and build the UI for production     |
+| `npm run test:db`    | Run a small SQLite create/read/update/delete smoke test   |
+| `npm run dist`       | Build the UI and package an installer for your current OS |
+| `npm run dist:win`   | Package a Windows `.exe` installer                        |
+| `npm run dist:mac`   | Package a macOS `.dmg`                                    |
+| `npm run dist:linux` | Package a Linux AppImage                                  |
 
 Stop the app with `Ctrl+C` in the terminal, or close the TodoDesk window.
 
@@ -142,23 +142,23 @@ On task pages you can:
 
 ### Sidebar views
 
-| View | Shows |
-| --- | --- |
-| Dashboard | Counts plus Today, Upcoming, and Recently created |
-| All Tasks | Every task |
-| Today | Incomplete tasks due today |
-| Upcoming | Incomplete tasks due after today |
-| Completed | Finished tasks |
-| High Priority | Incomplete high-priority tasks |
-| Settings | Theme, safety, and data tools |
+| View          | Shows                                             |
+| ------------- | ------------------------------------------------- |
+| Dashboard     | Counts plus Today, Upcoming, and Recently created |
+| All Tasks     | Every task                                        |
+| Today         | Incomplete tasks due today                        |
+| Upcoming      | Incomplete tasks due after today                  |
+| Completed     | Finished tasks                                    |
+| High Priority | Incomplete high-priority tasks                    |
+| Settings      | Theme, safety, and data tools                     |
 
 ### Keyboard shortcuts
 
-| Shortcut | Action |
-| --- | --- |
-| `Ctrl+N` / `Cmd+N` | New task |
-| `Ctrl+F` / `Cmd+F` | Focus search |
-| `Esc` | Close the open modal or dialog |
+| Shortcut           | Action                         |
+| ------------------ | ------------------------------ |
+| `Ctrl+N` / `Cmd+N` | New task                       |
+| `Ctrl+F` / `Cmd+F` | Focus search                   |
+| `Esc`              | Close the open modal or dialog |
 
 ### Settings
 
@@ -245,21 +245,21 @@ app/
 ### Preload API (what React is allowed to call)
 
 ```javascript
-window.todoAPI.getTodos()
-window.todoAPI.createTodo(todo)
-window.todoAPI.updateTodo(id, todo)
-window.todoAPI.deleteTodo(id)
-window.todoAPI.toggleTodo(id)
-window.todoAPI.clearCompleted()
-window.todoAPI.clearAll()
-window.todoAPI.getStats()
+window.todoAPI.getTodos();
+window.todoAPI.createTodo(todo);
+window.todoAPI.updateTodo(id, todo);
+window.todoAPI.deleteTodo(id);
+window.todoAPI.toggleTodo(id);
+window.todoAPI.clearCompleted();
+window.todoAPI.clearAll();
+window.todoAPI.getStats();
 
-window.settingsAPI.getSettings()
-window.settingsAPI.updateSettings(patch)
+window.settingsAPI.getSettings();
+window.settingsAPI.updateSettings(patch);
 
-window.windowAPI.minimize()
-window.windowAPI.maximize()
-window.windowAPI.close()
+window.windowAPI.minimize();
+window.windowAPI.maximize();
+window.windowAPI.close();
 ```
 
 ---
@@ -272,11 +272,11 @@ TodoDesk uses **SQLite** through [sql.js](https://sql.js.org/). The database liv
 
 The file name is `tododesk.sqlite` inside Electron’s user-data folder:
 
-| OS | Typical location |
-| --- | --- |
+| OS      | Typical location                                          |
+| ------- | --------------------------------------------------------- |
 | Windows | `C:\Users\<you>\AppData\Roaming\TodoDesk\tododesk.sqlite` |
-| macOS | `~/Library/Application Support/TodoDesk/tododesk.sqlite` |
-| Linux | `~/.config/TodoDesk/tododesk.sqlite` |
+| macOS   | `~/Library/Application Support/TodoDesk/tododesk.sqlite`  |
+| Linux   | `~/.config/TodoDesk/tododesk.sqlite`                      |
 
 Window size and position are stored next to it in `window-state.json`.
 

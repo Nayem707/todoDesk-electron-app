@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { initDatabase, closeDatabase } from "./database/connection.js";
 import { registerIpcHandlers } from "./ipc/register.js";
+import { startClipboardWatcher, stopClipboardWatcher } from "./clipboardWatcher.js";
 import { loadWindowState, saveWindowState } from "./windowState.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -103,6 +104,9 @@ if (!gotLock) {
     try {
       await initDatabase();
       registerIpcHandlers(getMainWindow);
+      startClipboardWatcher(() => {
+        getMainWindow()?.webContents.send("clipboard:changed");
+      });
       await createWindow();
     } catch (error) {
       console.error("[startup]", error);
@@ -124,6 +128,7 @@ app.on("activate", async () => {
 });
 
 app.on("before-quit", () => {
+  stopClipboardWatcher();
   if (mainWindow) {
     saveWindowState(mainWindow);
   }

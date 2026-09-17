@@ -7,7 +7,7 @@ import { useTodos } from "../store/TodoProvider";
 import type { AppView, FilterOption, SortOption, Todo } from "../types/todo";
 import { queryTodos } from "../utils/todoFilters";
 
-const TITLES: Record<Exclude<AppView, "dashboard" | "settings">, string> = {
+const TITLES: Record<Exclude<AppView, "dashboard" | "settings" | "clipboard">, string> = {
   all: "All Tasks",
   today: "Today",
   upcoming: "Upcoming",
@@ -16,7 +16,7 @@ const TITLES: Record<Exclude<AppView, "dashboard" | "settings">, string> = {
 };
 
 interface TasksPageProps {
-  view: Exclude<AppView, "dashboard" | "settings">;
+  view: Exclude<AppView, "dashboard" | "settings" | "clipboard">;
   searchRef: RefObject<HTMLInputElement | null>;
   onCreate: () => void;
   onEdit: (todo: Todo) => void;

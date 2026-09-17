@@ -7,6 +7,7 @@ export type AppView =
   | "upcoming"
   | "completed"
   | "high"
+  | "clipboard"
   | "settings";
 
 export type FilterOption =

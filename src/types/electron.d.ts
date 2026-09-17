@@ -1,3 +1,4 @@
+import type { ClipboardItem } from "./clipboard";
 import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
 
 export interface TodoAPI {
@@ -17,6 +18,14 @@ export interface SettingsAPI {
   updateSettings: (patch: Partial<AppSettings>) => Promise<IpcResult<AppSettings>>;
 }
 
+export interface ClipboardAPI {
+  getItems: () => Promise<IpcResult<ClipboardItem[]>>;
+  copyAgain: (id: string) => Promise<IpcResult<ClipboardItem>>;
+  deleteItem: (id: string) => Promise<IpcResult<{ id: string }>>;
+  togglePin: (id: string) => Promise<IpcResult<ClipboardItem>>;
+  onChanged: (callback: () => void) => () => void;
+}
+
 export interface WindowAPI {
   minimize: () => void;
   maximize: () => void;
@@ -29,6 +38,7 @@ declare global {
   interface Window {
     todoAPI: TodoAPI;
     settingsAPI: SettingsAPI;
+    clipboardAPI: ClipboardAPI;
     windowAPI: WindowAPI;
   }
 }

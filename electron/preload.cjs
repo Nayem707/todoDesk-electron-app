@@ -21,6 +21,18 @@ contextBridge.exposeInMainWorld("settingsAPI", {
   updateSettings: (patch) => invoke("settings:update", patch),
 });
 
+contextBridge.exposeInMainWorld("clipboardAPI", {
+  getItems: () => invoke("clipboard:getAll"),
+  copyAgain: (id) => invoke("clipboard:copyAgain", id),
+  deleteItem: (id) => invoke("clipboard:delete", id),
+  togglePin: (id) => invoke("clipboard:togglePin", id),
+  onChanged: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on("clipboard:changed", listener);
+    return () => ipcRenderer.removeListener("clipboard:changed", listener);
+  },
+});
+
 contextBridge.exposeInMainWorld("windowAPI", {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),
