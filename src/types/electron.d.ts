@@ -1,4 +1,5 @@
 import type { ClipboardItem } from "./clipboard";
+import type { MarkdownDocument } from "./markdown";
 import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
 
 export interface TodoAPI {
@@ -26,6 +27,15 @@ export interface ClipboardAPI {
   onChanged: (callback: () => void) => () => void;
 }
 
+export interface MarkdownAPI {
+  getDocuments: () => Promise<IpcResult<MarkdownDocument[]>>;
+  saveDocument: (input: {
+    id?: string | null;
+    content: string;
+  }) => Promise<IpcResult<MarkdownDocument>>;
+  deleteDocument: (id: string) => Promise<IpcResult<{ id: string }>>;
+}
+
 export interface WindowAPI {
   minimize: () => void;
   maximize: () => void;
@@ -39,6 +49,7 @@ declare global {
     todoAPI: TodoAPI;
     settingsAPI: SettingsAPI;
     clipboardAPI: ClipboardAPI;
+    markdownAPI: MarkdownAPI;
     windowAPI: WindowAPI;
   }
 }

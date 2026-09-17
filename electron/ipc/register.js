@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import * as todoRepository from "../database/todoRepository.js";
 import * as settingsRepository from "../database/settingsRepository.js";
 import * as clipboardRepository from "../database/clipboardRepository.js";
+import * as markdownRepository from "../database/markdownRepository.js";
 import { writeClipboardInternal } from "../clipboardWatcher.js";
 
 function handle(channel, handler) {
@@ -48,6 +49,10 @@ export function registerIpcHandlers(getMainWindow) {
   });
   handle("clipboard:delete", (id) => clipboardRepository.deleteClipboardItem(id));
   handle("clipboard:togglePin", (id) => clipboardRepository.toggleClipboardPin(id));
+
+  handle("markdown:getAll", () => markdownRepository.getAllMarkdownDocuments());
+  handle("markdown:save", (input) => markdownRepository.saveMarkdownDocument(input));
+  handle("markdown:delete", (id) => markdownRepository.deleteMarkdownDocument(id));
 
   void getMainWindow;
 }

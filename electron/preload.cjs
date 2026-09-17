@@ -33,6 +33,12 @@ contextBridge.exposeInMainWorld("clipboardAPI", {
   },
 });
 
+contextBridge.exposeInMainWorld("markdownAPI", {
+  getDocuments: () => invoke("markdown:getAll"),
+  saveDocument: (input) => invoke("markdown:save", input),
+  deleteDocument: (id) => invoke("markdown:delete", id),
+});
+
 contextBridge.exposeInMainWorld("windowAPI", {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),

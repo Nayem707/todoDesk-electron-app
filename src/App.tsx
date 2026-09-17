@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Toaster } from "sonner";
 import { AppShell } from "./layouts/AppShell";
 import { ClipboardPage } from "./pages/ClipboardPage";
+import { MarkdownPage } from "./pages/MarkdownPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodoPage } from "./pages/TodoPage";
 import { TodoModal } from "./components/TodoModal";
@@ -45,7 +46,7 @@ function AppFrame() {
 
   useKeyboardShortcuts({
     onNew: () => {
-      if (view !== "settings" && view !== "clipboard") {
+      if (view !== "settings" && view !== "clipboard" && view !== "markdown") {
         openCreate();
       }
     },
@@ -62,6 +63,9 @@ function AppFrame() {
     }
     if (view === "clipboard") {
       return <ClipboardPage searchRef={searchRef} />;
+    }
+    if (view === "markdown") {
+      return <MarkdownPage />;
     }
     return (
       <TodoPage

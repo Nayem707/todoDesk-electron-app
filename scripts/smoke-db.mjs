@@ -90,7 +90,7 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2") {
+if (versions.join(",") !== "1,2,3") {
   throw new Error(`Clipboard migration versions mismatch: ${versions.join(",")}`);
 }
 
@@ -220,6 +220,33 @@ const clipboardReady = existingUser.exec(
 if (!clipboardReady) {
   throw new Error("Clipboard tables were not created for existing users");
 }
+const markdownReady = existingUser.exec(
+  "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'markdown_documents'"
+)[0];
+if (!markdownReady) {
+  throw new Error("Markdown tables were not created for existing users");
+}
+
+migrated.run(
+  `INSERT INTO markdown_documents (id, title, content, created_at, updated_at)
+   VALUES (?, ?, ?, ?, ?)`,
+  ["md-1", "Hello", "# Hello\n\n**Markdown**", now, now]
+);
+const mdCount = migrated.exec("SELECT COUNT(*) AS c FROM markdown_documents")[0].values[0][0];
+if (mdCount !== 1) {
+  throw new Error("Markdown document insert failed");
+}
+migrated.run(
+  `UPDATE markdown_documents SET title = ?, content = ?, updated_at = ? WHERE id = ?`,
+  ["Hello", "# Hello\n\n**Markdown**", later, "md-1"]
+);
+const stillOne = migrated.exec(
+  "SELECT COUNT(*) AS c FROM markdown_documents WHERE content = '# Hello\n\n**Markdown**'"
+)[0].values[0][0];
+if (stillOne !== 1) {
+  throw new Error("Markdown save created a duplicate document");
+}
 
 console.log("clipboard schema + uniqueness + usage + persistence smoke test passed");
+console.log("markdown documents schema + persistence smoke test passed");
 

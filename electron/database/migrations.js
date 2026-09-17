@@ -90,6 +90,25 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 3,
+    name: "create-markdown-documents",
+    up(db) {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS markdown_documents (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_markdown_documents_updated
+          ON markdown_documents(updated_at);
+      `);
+    },
+  },
 ];
 
 /**
