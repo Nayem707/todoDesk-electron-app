@@ -3,7 +3,6 @@ import {
   MessageSquarePlus,
   PanelLeft,
   RotateCcw,
-  Send,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -435,7 +434,7 @@ export function AssistantPage() {
             void send();
           }}
         >
-          <div className="mx-auto flex w-full max-w-3xl items-end gap-2">
+          <div className="mx-auto w-full max-w-3xl">
             <textarea
               ref={inputRef}
               value={draft}
@@ -450,16 +449,8 @@ export function AssistantPage() {
               disabled={sending}
               placeholder="Message llama3.2"
               aria-label="Message"
-              className="todo-scroll max-h-40 min-h-[52px] flex-1 resize-none rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2.5 text-sm outline-none ring-[rgb(var(--accent))] placeholder:text-[rgb(var(--muted))] focus:ring-2 disabled:opacity-60"
+              className="todo-scroll max-h-40 min-h-[52px] w-full resize-none rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2.5 text-sm outline-none ring-[rgb(var(--accent))] placeholder:text-[rgb(var(--muted))] focus:ring-2 disabled:opacity-60"
             />
-            <button
-              type="submit"
-              disabled={sending || !draft.trim()}
-              className="inline-flex h-[52px] items-center gap-2 rounded-xl bg-[rgb(var(--accent))] px-4 text-sm font-medium text-[rgb(var(--accent-foreground))] disabled:opacity-40"
-            >
-              <Send size={15} />
-              Send
-            </button>
           </div>
         </form>
       </section>
