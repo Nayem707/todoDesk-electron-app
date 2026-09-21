@@ -148,6 +148,18 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 5,
+    name: "add-ai-message-images",
+    up(db) {
+      db.run(`
+        ALTER TABLE ai_messages ADD COLUMN image_path TEXT;
+      `);
+      db.run(`
+        ALTER TABLE ai_messages ADD COLUMN image_mime TEXT;
+      `);
+    },
+  },
 ];
 
 /**

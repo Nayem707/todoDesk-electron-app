@@ -62,6 +62,7 @@ export function registerIpcHandlers(getMainWindow) {
   handle("ai:deleteConversation", (id) => aiService.deleteConversation(id));
   handle("ai:getDraft", () => aiService.getChatDraft());
   handle("ai:saveDraft", (content) => aiService.saveChatDraft(content));
+  handle("ai:visionStatus", () => aiService.getVisionStatus());
 
   ipcMain.handle("ai:sendMessage", async (event, conversationId, content) => {
     try {
@@ -87,6 +88,34 @@ export function registerIpcHandlers(getMainWindow) {
       }
       const message = error instanceof Error ? error.message : "Unexpected error";
       console.error("[IPC ai:sendMessage]", error);
+      return { ok: false, error: message };
+    }
+  });
+
+  ipcMain.handle("ai:sendImageMessage", async (event, conversationId, content, image) => {
+    try {
+      const data = await aiService.sendImageMessage(conversationId, content, image, {
+        emit: (payload) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("ai:stream", payload);
+          }
+        },
+      });
+      return { ok: true, data };
+    } catch (error) {
+      if (error && error.code === "AI_GENERATION_FAILED") {
+        return {
+          ok: true,
+          data: {
+            failed: true,
+            error: error.message,
+            conversationId: error.conversationId,
+            messages: error.messages ?? [],
+          },
+        };
+      }
+      const message = error instanceof Error ? error.message : "Unexpected error";
+      console.error("[IPC ai:sendImageMessage]", error);
       return { ok: false, error: message };
     }
   });

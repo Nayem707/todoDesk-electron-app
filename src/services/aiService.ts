@@ -1,6 +1,7 @@
 import type {
   AiConversation,
   AiConversationBundle,
+  AiImagePayload,
   AiSendResult,
   AiStatus,
   AiStreamEvent,
@@ -16,6 +17,7 @@ function api() {
 
 export const aiService = {
   status: () => unwrap(api().getStatus()),
+  visionStatus: () => unwrap(api().getVisionStatus()),
   getConversations: () => unwrap(api().getConversations()),
   createConversation: () => unwrap(api().createConversation()),
   getConversation: (id: string) => unwrap(api().getConversation(id)),
@@ -24,6 +26,11 @@ export const aiService = {
   saveDraft: (content: string) => unwrap(api().saveDraft(content)),
   sendMessage: (conversationId: string | null, content: string) =>
     unwrap(api().sendMessage(conversationId, content)),
+  sendImageMessage: (
+    conversationId: string | null,
+    content: string,
+    image: AiImagePayload
+  ) => unwrap(api().sendImageMessage(conversationId, content, image)),
   retry: (conversationId: string) => unwrap(api().retry(conversationId)),
   onStream: (callback: (event: AiStreamEvent) => void) => api().onStream(callback),
 };
@@ -31,6 +38,7 @@ export const aiService = {
 export type {
   AiConversation,
   AiConversationBundle,
+  AiImagePayload,
   AiSendResult,
   AiStatus,
   AiStreamEvent,

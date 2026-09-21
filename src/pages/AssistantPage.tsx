@@ -2,17 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
+  ImagePlus,
   MessageSquarePlus,
   PanelLeft,
   RotateCcw,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
 import { ChatMarkdown } from "../components/ChatMarkdown";
 import { aiService } from "../services/aiService";
 import type {
   AiConversation,
+  AiImagePayload,
   AiMessage,
   AiSendResult,
   AiStatus,
@@ -23,9 +26,23 @@ import { formatDateTime } from "../utils/dates";
 import { getErrorMessage } from "../utils/errors";
 
 const DRAFT_SAVE_DELAY_MS = 250;
+const ACCEPTED_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif",
+];
 
 /** In-memory draft so navigating away/back restores instantly without a flash. */
 let cachedDraft: string | null = null;
+
+type PendingImage = {
+  name: string;
+  mimeType: string;
+  previewUrl: string;
+  data: string;
+};
 
 export function AssistantPage() {
   const [conversations, setConversations] = useState<AiConversation[]>([]);
@@ -37,12 +54,17 @@ export function AssistantPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [loadingChat, setLoadingChat] = useState(false);
   const [status, setStatus] = useState<AiStatus | null>(null);
+  const [visionStatus, setVisionStatus] = useState<AiStatus | null>(null);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
   const [generationFailed, setGenerationFailed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
+  const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const streamRequestIdRef = useRef<string | null>(null);
   const streamPerfRef = useRef<{
     requestId: string;
@@ -106,12 +128,64 @@ export function AssistantPage() {
     persistDraft("", true);
   };
 
+  const clearPendingImage = () => {
+    setPendingImage(null);
+  };
+
+  const readFileAsPendingImage = (file: File) =>
+    new Promise<PendingImage>((resolve, reject) => {
+      const mime = file.type === "image/jpg" ? "image/jpeg" : file.type;
+      if (!ACCEPTED_IMAGE_TYPES.includes(mime) && !ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+        reject(new Error("Unsupported image format. Use PNG, JPG, WEBP, or GIF."));
+        return;
+      }
+      if (file.size > 12 * 1024 * 1024) {
+        reject(new Error("Image is too large. Use a file under 12 MB."));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const base64 = result.includes(",") ? result.split(",")[1] : result;
+        if (!base64 || !result.startsWith("data:")) {
+          reject(new Error("Image conversion failed."));
+          return;
+        }
+        resolve({
+          name: file.name || "image",
+          mimeType: mime || "image/png",
+          previewUrl: result,
+          data: base64,
+        });
+      };
+      reader.onerror = () => reject(new Error("Image conversion failed."));
+      reader.readAsDataURL(file);
+    });
+
+  const attachImageFile = async (file: File | null | undefined) => {
+    if (!file || sending) {
+      return;
+    }
+    try {
+      const next = await readFileAsPendingImage(file);
+      setPendingImage(next);
+      setError("");
+      inputRef.current?.focus();
+    } catch (attachError) {
+      setError(getErrorMessage(attachError, "Could not attach image."));
+    }
+  };
+
   const refreshStatus = async () => {
     setChecking(true);
     try {
-      const next = await aiService.status();
-      setStatus(next);
-      if (next.available && next.modelReady) {
+      const [chatStatus, vision] = await Promise.all([
+        aiService.status(),
+        aiService.visionStatus(),
+      ]);
+      setStatus(chatStatus);
+      setVisionStatus(vision);
+      if (chatStatus.available && chatStatus.modelReady) {
         setError("");
       }
     } catch (loadError) {
@@ -119,6 +193,12 @@ export function AssistantPage() {
         available: false,
         modelReady: false,
         model: "llama3.2",
+        message: getErrorMessage(loadError, "Could not reach Ollama."),
+      });
+      setVisionStatus({
+        available: false,
+        modelReady: false,
+        model: "qwen2.5vl",
         message: getErrorMessage(loadError, "Could not reach Ollama."),
       });
     } finally {
@@ -149,6 +229,7 @@ export function AssistantPage() {
         chunkCount: 0,
       };
       console.log("[ai:perf:ui] Stream ready", event.requestId);
+      setAnalyzingImage(Boolean(event.analyzing));
       setActiveId(event.conversationId);
       if (event.messages) {
         setMessages(event.messages);
@@ -191,6 +272,7 @@ export function AssistantPage() {
         setMessages(event.messages);
       }
       setStreamText(null);
+      setAnalyzingImage(false);
       return;
     }
 
@@ -199,6 +281,7 @@ export function AssistantPage() {
         setMessages(event.messages);
       }
       setStreamText(null);
+      setAnalyzingImage(false);
       setGenerationFailed(true);
       setError(event.error || "The AI request failed. Try again.");
     }
@@ -214,6 +297,7 @@ export function AssistantPage() {
       setMessages(result.messages);
     }
     setStreamText(null);
+    setAnalyzingImage(false);
     if (result.failed) {
       setGenerationFailed(true);
       setError(result.error || "The AI request failed. Try again.");
@@ -297,9 +381,13 @@ export function AssistantPage() {
 
     const poll = async () => {
       try {
-        const next = await aiService.status();
+        const [chatStatus, vision] = await Promise.all([
+          aiService.status(),
+          aiService.visionStatus(),
+        ]);
         if (mounted) {
-          setStatus(next);
+          setStatus(chatStatus);
+          setVisionStatus(vision);
           setChecking(false);
         }
       } catch {
@@ -308,6 +396,12 @@ export function AssistantPage() {
             available: false,
             modelReady: false,
             model: "llama3.2",
+            message: "Could not reach Ollama.",
+          });
+          setVisionStatus({
+            available: false,
+            modelReady: false,
+            model: "qwen2.5vl",
             message: "Could not reach Ollama.",
           });
           setChecking(false);
@@ -391,9 +485,10 @@ export function AssistantPage() {
     }
   };
 
-  const runGeneration = async (action: () => Promise<AiSendResult>) => {
+  const runGeneration = async (action: () => Promise<AiSendResult>, options?: { analyzing?: boolean }) => {
     streamRequestIdRef.current = null;
     setSending(true);
+    setAnalyzingImage(Boolean(options?.analyzing));
     setError("");
     setGenerationFailed(false);
     setStreamText("");
@@ -424,15 +519,47 @@ export function AssistantPage() {
       stopListening();
       streamRequestIdRef.current = null;
       setSending(false);
+      setAnalyzingImage(false);
       inputRef.current?.focus();
     }
   };
 
   const send = async () => {
     const content = draft.trim();
-    if (!content || sending) {
-      if (!content) {
-        setError("Enter a message before sending.");
+    const image = pendingImage;
+    if (sending) {
+      return;
+    }
+    if (!content && !image) {
+      setError("Enter a message or attach an image before sending.");
+      return;
+    }
+
+    if (image) {
+      const imagePayload: AiImagePayload = {
+        mimeType: image.mimeType,
+        data: image.data,
+        name: image.name,
+      };
+      const promptForBubble = content || "Extract all text from this image.";
+      setDraft("");
+      setMessages((current) => [
+        ...current,
+        {
+          role: "user",
+          content: promptForBubble,
+          imageUrl: image.previewUrl,
+        },
+      ]);
+      clearPendingImage();
+      const ok = await runGeneration(
+        () => aiService.sendImageMessage(activeId, content, imagePayload),
+        { analyzing: true }
+      );
+      if (ok) {
+        clearDraft();
+      } else {
+        updateDraft(content);
       }
       return;
     }
@@ -454,13 +581,19 @@ export function AssistantPage() {
     await runGeneration(() => aiService.retry(activeId));
   };
 
-  const aiNavState: AiNavState = checking && !status
-    ? "checking"
-    : !status || !status.available
-      ? "offline"
-      : !status.modelReady
-        ? "missing"
-        : "active";
+  const usingVision = Boolean(pendingImage || analyzingImage);
+  const activeStatus = usingVision ? visionStatus : status;
+  const aiNavState: AiNavState =
+    checking && !activeStatus
+      ? "checking"
+      : !activeStatus || !activeStatus.available
+        ? "offline"
+        : !activeStatus.modelReady
+          ? "missing"
+          : "active";
+  const statusModel = usingVision
+    ? activeStatus?.model || "qwen2.5vl"
+    : activeStatus?.model || "llama3.2";
   const canRetry =
     generationFailed &&
     Boolean(activeId) &&
@@ -552,13 +685,15 @@ export function AssistantPage() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-semibold">{headerTitle}</h1>
             {sending && (
-              <p className="truncate text-xs text-[rgb(var(--muted))]">Generating…</p>
+              <p className="truncate text-xs text-[rgb(var(--muted))]">
+                {analyzingImage ? "Analyzing image…" : "Generating…"}
+              </p>
             )}
           </div>
           <AiStatusButton
             state={aiNavState}
-            model={status?.model ?? "llama3.2"}
-            detail={status?.message}
+            model={statusModel}
+            detail={activeStatus?.message}
             onRefresh={() => void refreshStatus()}
           />
           {!sidebarOpen && (
@@ -616,7 +751,9 @@ export function AssistantPage() {
                 <MessageBubble key={messageKey(message)} message={message} />
               ))}
               {streamText ? <StreamingBubble content={streamText} /> : null}
-              {sending && !streamText ? <TypingIndicator /> : null}
+              {sending && !streamText ? (
+                <TypingIndicator label={analyzingImage ? "Analyzing image…" : undefined} />
+              ) : null}
             </div>
           )}
         </div>
@@ -627,8 +764,87 @@ export function AssistantPage() {
             event.preventDefault();
             void send();
           }}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!sending) {
+              setDragOver(true);
+            }
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onDragLeave={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setDragOver(false);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setDragOver(false);
+            const file = event.dataTransfer.files?.[0];
+            void attachImageFile(file);
+          }}
         >
-          <div className="w-full">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              void attachImageFile(file);
+              event.target.value = "";
+            }}
+          />
+
+          {pendingImage && (
+            <div className="mb-2 flex items-start gap-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-2">
+              <img
+                src={pendingImage.previewUrl}
+                alt={pendingImage.name}
+                className="h-16 w-16 rounded-lg object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{pendingImage.name}</p>
+                <p className="mt-0.5 text-xs text-[rgb(var(--muted))]">
+                  Ready to analyze with qwen2.5vl
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearPendingImage}
+                disabled={sending}
+                className="rounded-md p-1.5 text-[rgb(var(--muted))] hover:bg-black/5 hover:text-[rgb(var(--danger))] disabled:opacity-40 dark:hover:bg-white/10"
+                aria-label="Remove image"
+                title="Remove image"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
+
+          <div
+            className={cn(
+              "flex w-full items-end gap-2 rounded-xl border bg-[rgb(var(--surface))] p-2",
+              dragOver
+                ? "border-[rgb(var(--accent))] ring-2 ring-[rgb(var(--accent))]/30"
+                : "border-[rgb(var(--border))]"
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending}
+              className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-lg border border-[rgb(var(--border))] px-2.5 text-sm text-[rgb(var(--muted))] hover:bg-black/5 hover:text-[rgb(var(--text))] disabled:opacity-40 dark:hover:bg-white/10"
+              title="Attach Image"
+              aria-label="Attach Image"
+            >
+              <ImagePlus size={16} />
+              <span className="hidden sm:inline">Attach</span>
+            </button>
             <textarea
               ref={inputRef}
               value={draft}
@@ -644,9 +860,13 @@ export function AssistantPage() {
               }}
               rows={2}
               disabled={sending}
-              placeholder="Message llama3.2"
+              placeholder={
+                pendingImage
+                  ? "Add an instruction for qwen2.5vl, or send to extract all text…"
+                  : "Message llama3.2"
+              }
               aria-label="Message"
-              className="todo-scroll w-full resize-none overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2.5 text-sm leading-5 outline-none ring-[rgb(var(--accent))] placeholder:text-[rgb(var(--muted))] focus:ring-2 disabled:opacity-60"
+              className="todo-scroll min-h-[42px] flex-1 resize-none overflow-hidden rounded-lg bg-transparent px-2 py-2 text-sm leading-5 outline-none placeholder:text-[rgb(var(--muted))] disabled:opacity-60"
             />
           </div>
         </form>
@@ -725,6 +945,7 @@ function AiStatusButton({
 
 function MessageBubble({ message }: { message: AiMessage }) {
   const isUser = message.role === "user";
+  const imageSrc = message.imageUrl || null;
   return (
     <article
       className={cn(
@@ -737,6 +958,16 @@ function MessageBubble({ message }: { message: AiMessage }) {
       <p className="mb-1 text-[11px] font-medium uppercase tracking-wide opacity-70">
         {isUser ? "You" : "Assistant"}
       </p>
+      {isUser && imageSrc ? (
+        <img
+          src={imageSrc}
+          alt="Attached"
+          className="mb-2 max-h-64 w-full rounded-xl object-contain bg-black/10"
+        />
+      ) : null}
+      {isUser && message.imageMissing ? (
+        <p className="mb-2 text-xs opacity-80">Attached image is missing on disk.</p>
+      ) : null}
       {isUser ? (
         <CollapsibleUserText content={message.content} />
       ) : (
@@ -854,22 +1085,25 @@ function StreamingBubble({ content }: { content: string }) {
   );
 }
 
-function TypingIndicator() {
+function TypingIndicator({ label }: { label?: string }) {
   return (
     <div className="mr-auto flex w-full max-w-full items-center gap-2 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 py-3">
       <p className="text-[11px] font-medium uppercase tracking-wide text-[rgb(var(--muted))]">
         Assistant
       </p>
-      <span className="flex items-center gap-1" aria-label="Generating a reply">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgb(var(--muted))]" />
-        <span
-          className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgb(var(--muted))]"
-          style={{ animationDelay: "150ms" }}
-        />
-        <span
-          className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgb(var(--muted))]"
-          style={{ animationDelay: "300ms" }}
-        />
+      <span className="flex items-center gap-2 text-sm text-[rgb(var(--muted))]">
+        <span className="flex items-center gap-1" aria-label={label || "Generating a reply"}>
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgb(var(--muted))]" />
+          <span
+            className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgb(var(--muted))]"
+            style={{ animationDelay: "150ms" }}
+          />
+          <span
+            className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgb(var(--muted))]"
+            style={{ animationDelay: "300ms" }}
+          />
+        </span>
+        {label || "Generating…"}
       </span>
     </div>
   );

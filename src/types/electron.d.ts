@@ -1,6 +1,7 @@
 import type {
   AiConversation,
   AiConversationBundle,
+  AiImagePayload,
   AiMessage,
   AiSendResult,
   AiStatus,
@@ -46,6 +47,7 @@ export interface MarkdownAPI {
 
 export interface AiAPI {
   getStatus: () => Promise<IpcResult<AiStatus>>;
+  getVisionStatus: () => Promise<IpcResult<AiStatus>>;
   getConversations: () => Promise<IpcResult<AiConversation[]>>;
   createConversation: () => Promise<IpcResult<AiConversation>>;
   getConversation: (id: string) => Promise<IpcResult<AiConversationBundle>>;
@@ -55,6 +57,11 @@ export interface AiAPI {
   sendMessage: (
     conversationId: string | null,
     content: string
+  ) => Promise<IpcResult<AiSendResult>>;
+  sendImageMessage: (
+    conversationId: string | null,
+    content: string,
+    image: AiImagePayload
   ) => Promise<IpcResult<AiSendResult>>;
   retry: (conversationId: string) => Promise<IpcResult<AiSendResult>>;
   onStream: (callback: (event: AiStreamEvent) => void) => () => void;

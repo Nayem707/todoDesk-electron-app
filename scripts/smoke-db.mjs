@@ -90,7 +90,7 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3,4") {
+if (versions.join(",") !== "1,2,3,4,5") {
   throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
 }
 
@@ -231,6 +231,10 @@ const aiReady = existingUser.exec(
 )[0];
 if (!aiReady) {
   throw new Error("AI conversation tables were not created for existing users");
+}
+const aiImageCols = existingUser.exec("PRAGMA table_info(ai_messages)")[0].values.map((row) => row[1]);
+if (!aiImageCols.includes("image_path") || !aiImageCols.includes("image_mime")) {
+  throw new Error("AI message image columns were not created for existing users");
 }
 
 migrated.run(

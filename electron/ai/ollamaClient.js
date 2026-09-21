@@ -1,7 +1,9 @@
 const OLLAMA_BASE = "http://127.0.0.1:11434";
 const MODEL = "llama3.2";
+const VISION_MODEL = "qwen2.5vl";
 const STATUS_TIMEOUT_MS = 4_000;
 const CHAT_TIMEOUT_MS = 120_000;
+const VISION_TIMEOUT_MS = 180_000;
 const MAX_MESSAGES = 40;
 const MAX_CONTENT_LENGTH = 12_000;
 
@@ -19,10 +21,19 @@ const MISSING_MODEL_MESSAGE = [
   "ollama pull llama3.2",
 ].join("\n");
 
+const MISSING_VISION_MODEL_MESSAGE = [
+  "Unable to analyze the image.",
+  "Make sure Ollama is running and qwen2.5vl is installed.",
+  "",
+  "Run:",
+  "",
+  "ollama pull qwen2.5vl",
+].join("\n");
+
 const OFFLINE_MESSAGE = "Ollama is not running. Start Ollama, then try again.";
 
-function isModelName(name) {
-  return name === MODEL || name.startsWith(`${MODEL}:`);
+function isModelName(name, expected) {
+  return name === expected || name.startsWith(`${expected}:`);
 }
 
 function timeoutSignal(ms) {
@@ -83,7 +94,7 @@ export async function getAiStatus() {
   const body = await readJson(response);
   const models = Array.isArray(body?.models) ? body.models : [];
   const matched = models.find((model) =>
-    isModelName(String(model?.name || model?.model || ""))
+    isModelName(String(model?.name || model?.model || ""), MODEL)
   );
   const modelName = matched
     ? String(matched.name || matched.model || MODEL)
@@ -327,4 +338,111 @@ export async function streamChatWithAi(messages, { onChunk } = {}) {
 /** Non-streaming helper kept for callers that only need the final text. */
 export async function chatWithAi(messages) {
   return streamChatWithAi(messages);
+}
+
+export async function getVisionStatus() {
+  let response;
+  try {
+    response = await fetch(`${OLLAMA_BASE}/api/tags`, {
+      signal: timeoutSignal(STATUS_TIMEOUT_MS),
+    });
+  } catch (error) {
+    return {
+      available: false,
+      modelReady: false,
+      model: VISION_MODEL,
+      message: asErrorMessage(error, OFFLINE_MESSAGE),
+    };
+  }
+
+  if (!response.ok) {
+    return {
+      available: false,
+      modelReady: false,
+      model: VISION_MODEL,
+      message: "Ollama responded with an error. Check that it is running.",
+    };
+  }
+
+  const body = await readJson(response);
+  const models = Array.isArray(body?.models) ? body.models : [];
+  const matched = models.find((model) =>
+    isModelName(String(model?.name || model?.model || ""), VISION_MODEL)
+  );
+  const modelName = matched
+    ? String(matched.name || matched.model || VISION_MODEL)
+    : VISION_MODEL;
+
+  return {
+    available: true,
+    modelReady: Boolean(matched),
+    model: modelName,
+    message: matched ? "" : MISSING_VISION_MODEL_MESSAGE,
+  };
+}
+
+/**
+ * Analyze an image with local Qwen2.5-VL via Ollama /api/generate (stream: false).
+ */
+export async function analyzeImageWithVision({ prompt, base64Image }) {
+  const status = await getVisionStatus();
+  if (!status.available || !status.modelReady) {
+    throw new Error(status.message || MISSING_VISION_MODEL_MESSAGE);
+  }
+
+  const text = typeof prompt === "string" ? prompt.trim() : "";
+  if (!text) {
+    throw new Error("Enter a prompt for the image analysis.");
+  }
+  if (typeof base64Image !== "string" || !base64Image.trim()) {
+    throw new Error("Invalid image.");
+  }
+
+  // Strip data-URL prefix if a caller accidentally included it.
+  const imageData = base64Image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+
+  let response;
+  try {
+    response = await fetch(`${OLLAMA_BASE}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        prompt: text,
+        images: [imageData],
+        stream: false,
+      }),
+      signal: timeoutSignal(VISION_TIMEOUT_MS),
+    });
+  } catch (error) {
+    throw new Error(asErrorMessage(error, "Could not reach Ollama."));
+  }
+
+  const body = await readJson(response);
+  if (!response.ok) {
+    const detail = typeof body?.error === "string" ? body.error : "";
+    if (/not found|pull/i.test(detail)) {
+      throw new Error(MISSING_VISION_MODEL_MESSAGE);
+    }
+    throw new Error(
+      "Unable to analyze the image.\nMake sure Ollama is running and qwen2.5vl is installed."
+    );
+  }
+
+  const content =
+    typeof body?.response === "string"
+      ? body.response.trim()
+      : typeof body?.message?.content === "string"
+        ? body.message.content.trim()
+        : "";
+
+  if (!content) {
+    throw new Error("The vision model returned an empty response. Try again.");
+  }
+
+  return {
+    role: "assistant",
+    content,
+    model: VISION_MODEL,
+  };
 }

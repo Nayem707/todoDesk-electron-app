@@ -6,6 +6,10 @@ export interface AiMessage {
   role: AiRole;
   content: string;
   createdAt?: string;
+  imagePath?: string | null;
+  imageMime?: string | null;
+  imageUrl?: string | null;
+  imageMissing?: boolean;
 }
 
 export interface AiConversation {
@@ -20,6 +24,12 @@ export interface AiStatus {
   modelReady: boolean;
   model: string;
   message: string;
+}
+
+export interface AiImagePayload {
+  mimeType: string;
+  data: string;
+  name?: string;
 }
 
 export interface AiSendResult {
@@ -51,4 +61,5 @@ export interface AiStreamEvent {
   delta?: string;
   content?: string;
   error?: string;
+  analyzing?: boolean;
 }

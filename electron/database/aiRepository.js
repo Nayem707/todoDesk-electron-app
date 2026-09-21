@@ -3,6 +3,7 @@ import { getDb, schedulePersist } from "./connection.js";
 
 const MAX_TITLE_LENGTH = 60;
 const MAX_CONTENT_LENGTH = 12_000;
+const MAX_VISION_CONTENT_LENGTH = 100_000;
 const HISTORY_LIMIT = 40;
 
 function nowIso() {
@@ -16,11 +17,11 @@ function requireId(id, label = "id") {
   return id;
 }
 
-function normalizeContent(content) {
+function normalizeContent(content, maxLength = MAX_CONTENT_LENGTH) {
   if (typeof content !== "string") {
     return "";
   }
-  return content.trim().slice(0, MAX_CONTENT_LENGTH);
+  return content.trim().slice(0, maxLength);
 }
 
 export function titleFromPrompt(content) {
@@ -54,6 +55,8 @@ function mapMessage(row) {
     role: row.role,
     content: row.content,
     createdAt: row.created_at,
+    imagePath: row.image_path || null,
+    imageMime: row.image_mime || null,
   };
 }
 
@@ -156,7 +159,12 @@ export function getMessagesByConversation(conversationId, { limit = HISTORY_LIMI
   return mapped.slice(mapped.length - safeLimit);
 }
 
-export function createMessage(conversationId, role, content) {
+export function createMessage(
+  conversationId,
+  role,
+  content,
+  { imagePath = null, imageMime = null, maxContentLength = MAX_CONTENT_LENGTH } = {}
+) {
   const conversation = getConversationById(conversationId);
   if (!conversation) {
     throw new Error("Conversation not found.");
@@ -164,8 +172,8 @@ export function createMessage(conversationId, role, content) {
   if (role !== "user" && role !== "assistant" && role !== "system") {
     throw new Error("Message role is invalid.");
   }
-  const normalized = normalizeContent(content);
-  if (!normalized) {
+  const normalized = normalizeContent(content, maxContentLength);
+  if (!normalized && !imagePath) {
     throw new Error("Message content is required.");
   }
 
@@ -177,16 +185,27 @@ export function createMessage(conversationId, role, content) {
   );
   const isFirstUser =
     role === "user" && Number(messageCount?.count ?? 0) === 0;
+  const storedContent = normalized || "Image attachment";
+  const titleSource = normalized || "Image analysis";
 
   withTransaction((db) => {
     db.run(
-      `INSERT INTO ai_messages (id, conversation_id, role, content, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, conversationId, role, normalized, timestamp]
+      `INSERT INTO ai_messages
+        (id, conversation_id, role, content, created_at, image_path, image_mime)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        conversationId,
+        role,
+        storedContent,
+        timestamp,
+        imagePath || null,
+        imageMime || null,
+      ]
     );
     if (isFirstUser) {
       db.run(`UPDATE ai_conversations SET title = ?, updated_at = ? WHERE id = ?`, [
-        titleFromPrompt(normalized),
+        titleFromPrompt(titleSource),
         timestamp,
         conversationId,
       ]);
@@ -199,8 +218,10 @@ export function createMessage(conversationId, role, content) {
     id,
     conversation_id: conversationId,
     role,
-    content: normalized,
+    content: storedContent,
     created_at: timestamp,
+    image_path: imagePath || null,
+    image_mime: imageMime || null,
   });
 }
 
@@ -209,11 +230,24 @@ export function deleteConversation(id) {
   if (!existing) {
     throw new Error("Conversation not found.");
   }
+
+  const imageRows = queryAll(
+    `SELECT image_path FROM ai_messages
+     WHERE conversation_id = ? AND image_path IS NOT NULL`,
+    [id]
+  );
+
   withTransaction((db) => {
     db.run("DELETE FROM ai_messages WHERE conversation_id = ?", [id]);
     db.run("DELETE FROM ai_conversations WHERE id = ?", [id]);
   });
-  return { id };
+
+  return {
+    id,
+    imagePaths: imageRows
+      .map((row) => row.image_path)
+      .filter((value) => typeof value === "string" && value),
+  };
 }
 
 export function getConversationBundle(conversationId) {

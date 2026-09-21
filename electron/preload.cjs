@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld("markdownAPI", {
 
 contextBridge.exposeInMainWorld("aiAPI", {
   getStatus: () => invoke("ai:status"),
+  getVisionStatus: () => invoke("ai:visionStatus"),
   getConversations: () => invoke("ai:getConversations"),
   createConversation: () => invoke("ai:createConversation"),
   getConversation: (id) => invoke("ai:getConversation", id),
@@ -49,6 +50,8 @@ contextBridge.exposeInMainWorld("aiAPI", {
   saveDraft: (content) => invoke("ai:saveDraft", content),
   sendMessage: (conversationId, content) =>
     invoke("ai:sendMessage", conversationId, content),
+  sendImageMessage: (conversationId, content, image) =>
+    invoke("ai:sendImageMessage", conversationId, content, image),
   retry: (conversationId) => invoke("ai:retry", conversationId),
   onStream: (callback) => {
     const listener = (_event, payload) => callback(payload);
