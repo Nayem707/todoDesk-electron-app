@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ChevronDown,
+  ChevronUp,
   MessageSquarePlus,
   PanelLeft,
   RotateCcw,
@@ -704,8 +706,101 @@ function MessageBubble({ message }: { message: AiMessage }) {
       <p className="mb-1 text-[11px] font-medium uppercase tracking-wide opacity-70">
         {isUser ? "You" : "Assistant"}
       </p>
-      <p className="select-text whitespace-pre-wrap break-words">{message.content}</p>
+      {isUser ? (
+        <CollapsibleUserText content={message.content} />
+      ) : (
+        <p className="select-text whitespace-pre-wrap break-words">{message.content}</p>
+      )}
     </article>
+  );
+}
+
+const USER_MESSAGE_COLLAPSED_LINES = 8;
+
+function CollapsibleUserText({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const [maxHeightPx, setMaxHeightPx] = useState(0);
+  const textRef = useRef<HTMLParagraphElement | null>(null);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [content]);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) {
+      return;
+    }
+
+    const measure = () => {
+      const styles = window.getComputedStyle(el);
+      const lineHeight = Number.parseFloat(styles.lineHeight) || 24;
+      const limit = Math.ceil(lineHeight * USER_MESSAGE_COLLAPSED_LINES);
+
+      const previousMaxHeight = el.style.maxHeight;
+      const previousOverflow = el.style.overflow;
+      el.style.maxHeight = "none";
+      el.style.overflow = "visible";
+      const fullHeight = el.scrollHeight;
+      el.style.maxHeight = previousMaxHeight;
+      el.style.overflow = previousOverflow;
+
+      setMaxHeightPx((current) => (current === limit ? current : limit));
+      setOverflows(fullHeight > limit + 1);
+    };
+
+    measure();
+    const frame = requestAnimationFrame(measure);
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(measure);
+    });
+    observer.observe(el);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [content]);
+
+  const collapsed = !expanded && overflows && maxHeightPx > 0;
+
+  return (
+    <div>
+      <div className="relative">
+        <p
+          ref={textRef}
+          className="select-text whitespace-pre-wrap break-words leading-6"
+          style={
+            collapsed
+              ? { maxHeight: `${maxHeightPx}px`, overflow: "hidden" }
+              : undefined
+          }
+        >
+          {content}
+        </p>
+        {collapsed && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[rgb(var(--accent))] via-[rgb(var(--accent))]/85 to-transparent"
+          />
+        )}
+      </div>
+      {overflows && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="relative z-[1] mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-[rgb(var(--accent-foreground))] opacity-95 hover:opacity-100"
+        >
+          {expanded ? "Show less" : "Show more"}
+          {expanded ? (
+            <ChevronUp size={16} strokeWidth={2.5} />
+          ) : (
+            <ChevronDown size={16} strokeWidth={2.5} />
+          )}
+        </button>
+      )}
+    </div>
   );
 }
 
