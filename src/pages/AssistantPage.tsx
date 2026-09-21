@@ -454,13 +454,13 @@ export function AssistantPage() {
         </div>
 
         <form
-          className="shrink-0 border-t border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 py-3 sm:px-6"
+          className="shrink-0 border-t border-[rgb(var(--border))] px-4 py-3 sm:px-6"
           onSubmit={(event) => {
             event.preventDefault();
             void send();
           }}
         >
-          <div className="mx-auto w-full max-w-3xl">
+          <div className="w-full">
             <textarea
               ref={inputRef}
               value={draft}
@@ -478,7 +478,7 @@ export function AssistantPage() {
               disabled={sending}
               placeholder="Message llama3.2"
               aria-label="Message"
-              className="todo-scroll w-full resize-none overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2.5 text-sm leading-5 outline-none ring-[rgb(var(--accent))] placeholder:text-[rgb(var(--muted))] focus:ring-2 disabled:opacity-60"
+              className="todo-scroll w-full resize-none overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2.5 text-sm leading-5 outline-none ring-[rgb(var(--accent))] placeholder:text-[rgb(var(--muted))] focus:ring-2 disabled:opacity-60"
             />
           </div>
         </form>
