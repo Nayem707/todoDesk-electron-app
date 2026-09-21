@@ -3,7 +3,7 @@ import * as todoRepository from "../database/todoRepository.js";
 import * as settingsRepository from "../database/settingsRepository.js";
 import * as clipboardRepository from "../database/clipboardRepository.js";
 import * as markdownRepository from "../database/markdownRepository.js";
-import { chatWithAi, getAiStatus } from "../ai/ollamaClient.js";
+import * as aiService from "../ai/aiService.js";
 import { writeClipboardInternal } from "../clipboardWatcher.js";
 
 function handle(channel, handler) {
@@ -55,8 +55,41 @@ export function registerIpcHandlers(getMainWindow) {
   handle("markdown:save", (input) => markdownRepository.saveMarkdownDocument(input));
   handle("markdown:delete", (id) => markdownRepository.deleteMarkdownDocument(id));
 
-  handle("ai:status", () => getAiStatus());
-  handle("ai:chat", (messages) => chatWithAi(messages));
+  handle("ai:status", () => aiService.getAiStatus());
+  handle("ai:getConversations", () => aiService.listConversations());
+  handle("ai:createConversation", () => aiService.createConversation());
+  handle("ai:getConversation", (id) => aiService.getConversation(id));
+  handle("ai:deleteConversation", (id) => aiService.deleteConversation(id));
+  handle("ai:sendMessage", async (conversationId, content) => {
+    try {
+      return await aiService.sendMessage(conversationId, content);
+    } catch (error) {
+      if (error && error.code === "AI_GENERATION_FAILED") {
+        return {
+          failed: true,
+          error: error.message,
+          conversationId: error.conversationId,
+          messages: error.messages ?? [],
+        };
+      }
+      throw error;
+    }
+  });
+  handle("ai:retry", async (conversationId) => {
+    try {
+      return await aiService.retryAssistant(conversationId);
+    } catch (error) {
+      if (error && error.code === "AI_GENERATION_FAILED") {
+        return {
+          failed: true,
+          error: error.message,
+          conversationId: error.conversationId,
+          messages: error.messages ?? [],
+        };
+      }
+      throw error;
+    }
+  });
 
   void getMainWindow;
 }

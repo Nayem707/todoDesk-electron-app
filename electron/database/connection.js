@@ -45,6 +45,8 @@ export function persistNow() {
   try {
     const data = db.export();
     fs.writeFileSync(dbPath, Buffer.from(data));
+    // sql.js resets connection pragmas after export(); keep FK enforcement on.
+    db.run("PRAGMA foreign_keys = ON;");
   } catch (error) {
     console.error("[database] persist failed", error);
     throw new Error("Failed to save data to disk.");

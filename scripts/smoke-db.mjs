@@ -90,8 +90,8 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3") {
-  throw new Error(`Clipboard migration versions mismatch: ${versions.join(",")}`);
+if (versions.join(",") !== "1,2,3,4") {
+  throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
 }
 
 const later = new Date(Date.now() + 1000).toISOString();
@@ -226,6 +226,12 @@ const markdownReady = existingUser.exec(
 if (!markdownReady) {
   throw new Error("Markdown tables were not created for existing users");
 }
+const aiReady = existingUser.exec(
+  "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_conversations'"
+)[0];
+if (!aiReady) {
+  throw new Error("AI conversation tables were not created for existing users");
+}
 
 migrated.run(
   `INSERT INTO markdown_documents (id, title, content, created_at, updated_at)
@@ -247,6 +253,76 @@ if (stillOne !== 1) {
   throw new Error("Markdown save created a duplicate document");
 }
 
+migrated.run(
+  `INSERT INTO ai_conversations (id, title, created_at, updated_at)
+   VALUES (?, ?, ?, ?)`,
+  ["conv-a", "Node.js Discussion", now, now]
+);
+migrated.run(
+  `INSERT INTO ai_conversations (id, title, created_at, updated_at)
+   VALUES (?, ?, ?, ?)`,
+  ["conv-b", "React Hooks", later, later]
+);
+migrated.run(
+  `INSERT INTO ai_messages (id, conversation_id, role, content, created_at)
+   VALUES (?, ?, ?, ?, ?)`,
+  ["msg-1", "conv-a", "user", "What is Node.js?", now]
+);
+migrated.run(
+  `INSERT INTO ai_messages (id, conversation_id, role, content, created_at)
+   VALUES (?, ?, ?, ?, ?)`,
+  ["msg-2", "conv-a", "assistant", "Node.js is a JavaScript runtime.", later]
+);
+migrated.run(
+  `INSERT INTO ai_messages (id, conversation_id, role, content, created_at)
+   VALUES (?, ?, ?, ?, ?)`,
+  ["msg-3", "conv-b", "user", "Explain React hooks", later]
+);
+
+const convAMessages = migrated.exec(
+  "SELECT COUNT(*) AS c FROM ai_messages WHERE conversation_id = 'conv-a'"
+)[0].values[0][0];
+if (convAMessages !== 2) {
+  throw new Error("AI messages were not linked to conversation A");
+}
+
+// sql.js resets PRAGMA foreign_keys after export(); re-enable before cascade checks.
+migrated.run("PRAGMA foreign_keys = ON;");
+migrated.run("DELETE FROM ai_conversations WHERE id = ?", ["conv-a"]);
+const orphanMessages = migrated.exec(
+  "SELECT COUNT(*) AS c FROM ai_messages WHERE conversation_id = 'conv-a'"
+)[0].values[0][0];
+if (orphanMessages !== 0) {
+  throw new Error("AI messages were not cascade-deleted with conversation A");
+}
+const convBLeft = migrated.exec(
+  "SELECT COUNT(*) AS c FROM ai_conversations WHERE id = 'conv-b'"
+)[0].values[0][0];
+const convBMessages = migrated.exec(
+  "SELECT COUNT(*) AS c FROM ai_messages WHERE conversation_id = 'conv-b'"
+)[0].values[0][0];
+if (convBLeft !== 1 || convBMessages !== 1) {
+  throw new Error("Deleting conversation A affected conversation B");
+}
+
+const aiPersistedPath = path.join(os.tmpdir(), `tododesk-ai-${Date.now()}.sqlite`);
+fs.writeFileSync(aiPersistedPath, Buffer.from(migrated.export()));
+const reopenedAi = new SQL.Database(fs.readFileSync(aiPersistedPath));
+reopenedAi.run("PRAGMA foreign_keys = ON;");
+const persistedConv = reopenedAi.exec(
+  "SELECT COUNT(*) AS c FROM ai_conversations"
+)[0].values[0][0];
+const persistedMsg = reopenedAi.exec("SELECT COUNT(*) AS c FROM ai_messages")[0].values[0][0];
+if (persistedConv !== 1 || persistedMsg !== 1) {
+  throw new Error("AI conversations/messages did not persist after reopen");
+}
+const todosUntouched = migrated.exec("SELECT COUNT(*) AS c FROM todos")[0].values[0][0];
+if (todosUntouched !== 0) {
+  throw new Error("Unexpected todos present during AI smoke insert path");
+}
+fs.unlinkSync(aiPersistedPath);
+
 console.log("clipboard schema + uniqueness + usage + persistence smoke test passed");
 console.log("markdown documents schema + persistence smoke test passed");
+console.log("ai conversations + cascade delete + persistence smoke test passed");
 

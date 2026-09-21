@@ -1,4 +1,4 @@
-import type { AiMessage, AiReply, AiStatus } from "./ai";
+import type { AiConversation, AiConversationBundle, AiMessage, AiSendResult, AiStatus } from "./ai";
 import type { ClipboardItem } from "./clipboard";
 import type { MarkdownDocument } from "./markdown";
 import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
@@ -39,7 +39,15 @@ export interface MarkdownAPI {
 
 export interface AiAPI {
   getStatus: () => Promise<IpcResult<AiStatus>>;
-  chat: (messages: AiMessage[]) => Promise<IpcResult<AiReply>>;
+  getConversations: () => Promise<IpcResult<AiConversation[]>>;
+  createConversation: () => Promise<IpcResult<AiConversation>>;
+  getConversation: (id: string) => Promise<IpcResult<AiConversationBundle>>;
+  deleteConversation: (id: string) => Promise<IpcResult<{ id: string }>>;
+  sendMessage: (
+    conversationId: string | null,
+    content: string
+  ) => Promise<IpcResult<AiSendResult>>;
+  retry: (conversationId: string) => Promise<IpcResult<AiSendResult>>;
 }
 
 export interface WindowAPI {

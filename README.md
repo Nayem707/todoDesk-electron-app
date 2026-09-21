@@ -210,10 +210,16 @@ Click **Markdown** in the sidebar for a live Markdown editor.
 
 Click **Assistant** in the sidebar to chat with a local model through [Ollama](https://ollama.com/).
 
-The renderer never calls Ollama directly. The flow is:
+Conversations and messages are stored in the local sql.js database (`ai_conversations`, `ai_messages`). They survive page changes, reloads, and app restarts.
+
+The renderer never calls Ollama or the database directly. The flow is:
 
 ```text
-Assistant page → preload aiAPI → IPC → main process → http://127.0.0.1:11434/api/chat
+Assistant page → preload aiAPI → IPC → AI service → repository + Ollama
+```
+
+```text
+User message → save → load history → Ollama (/api/chat) → save assistant reply
 ```
 
 Model: `llama3.2`.
@@ -225,9 +231,14 @@ ollama serve
 ollama pull llama3.2
 ```
 
-Then open Assistant, type a message, and press Send. The conversation stays in the page until you click **Clear**. If Ollama is stopped, or the model is missing, the page shows a short error instead of a stack trace.
+Then open Assistant:
 
-The chat API is isolated so later prompts can include todos or clipboard text without changing the UI transport.
+- **New Chat** creates a conversation (title updates from the first user message)
+- Selecting a conversation loads its messages from the database
+- Delete removes the conversation and its messages
+- If Ollama fails after the user message is saved, the message stays and **Retry** regenerates the reply
+
+If Ollama is stopped, or the model is missing, the page shows a short error instead of a stack trace.
 
 ### Keyboard shortcuts
 
@@ -289,7 +300,8 @@ app/
 │   ├── preload.cjs           # Exposes todoAPI, settingsAPI, clipboardAPI, markdownAPI, aiAPI, windowAPI
 │   ├── clipboardWatcher.js   # Polls OS clipboard; ignores TodoDesk “copy again”
 │   ├── ai/
-│   │   └── ollamaClient.js   # Local Ollama chat (llama3.2)
+│   │   ├── ollamaClient.js   # Local Ollama chat (llama3.2)
+│   │   └── aiService.js      # Persist messages + call Ollama
 │   ├── windowState.js        # Remembers window size and position
 │   ├── ipc/
 │   │   └── register.js       # IPC handlers (errors wrapped, never swallowed)
@@ -300,6 +312,7 @@ app/
 │       ├── todoValidation.js
 │       ├── clipboardRepository.js
 │       ├── markdownRepository.js
+│       ├── aiRepository.js   # AI conversations / messages
 │       └── settingsRepository.js
 ├── src/                      # React UI (renderer)
 │   ├── components/           # Cards, modal, dialogs, tabs, clipboard filter bar
@@ -314,7 +327,7 @@ app/
 │   └── main.tsx
 ├── scripts/
 │   ├── dev-electron.mjs      # Waits for Vite, then launches Electron
-│   ├── smoke-db.mjs          # SQLite CRUD + clipboard + markdown smoke tests
+│   ├── smoke-db.mjs          # SQLite CRUD + clipboard + markdown + AI smoke tests
 │   └── inspect-db.mjs        # Print tables from the live database file
 ├── public/
 ├── build/icon.png
@@ -426,6 +439,7 @@ Current migrations:
 1. Todos + settings
 2. Clipboard history
 3. Markdown documents
+4. AI conversations + messages
 
 ### Inspect or test the database
 
@@ -433,7 +447,7 @@ Current migrations:
 npm run test:db
 ```
 
-To print the live app database (migrations, settings, todos, clipboard, markdown):
+To print the live app database (migrations, settings, todos, clipboard, markdown, AI):
 
 ```bash
 node scripts/inspect-db.mjs

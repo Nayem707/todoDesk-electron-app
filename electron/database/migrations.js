@@ -109,6 +109,45 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 4,
+    name: "create-ai-conversations",
+    up(db) {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS ai_conversations (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+
+      db.run(`
+        CREATE TABLE IF NOT EXISTS ai_messages (
+          id TEXT PRIMARY KEY,
+          conversation_id TEXT NOT NULL,
+          role TEXT NOT NULL
+            CHECK (role IN ('user', 'assistant', 'system')),
+          content TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (conversation_id) REFERENCES ai_conversations(id) ON DELETE CASCADE
+        );
+      `);
+
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_ai_conversations_updated
+          ON ai_conversations(updated_at);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation
+          ON ai_messages(conversation_id);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_ai_messages_created
+          ON ai_messages(created_at);
+      `);
+    },
+  },
 ];
 
 /**

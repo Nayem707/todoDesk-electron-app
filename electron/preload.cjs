@@ -41,7 +41,13 @@ contextBridge.exposeInMainWorld("markdownAPI", {
 
 contextBridge.exposeInMainWorld("aiAPI", {
   getStatus: () => invoke("ai:status"),
-  chat: (messages) => invoke("ai:chat", messages),
+  getConversations: () => invoke("ai:getConversations"),
+  createConversation: () => invoke("ai:createConversation"),
+  getConversation: (id) => invoke("ai:getConversation", id),
+  deleteConversation: (id) => invoke("ai:deleteConversation", id),
+  sendMessage: (conversationId, content) =>
+    invoke("ai:sendMessage", conversationId, content),
+  retry: (conversationId) => invoke("ai:retry", conversationId),
 });
 
 contextBridge.exposeInMainWorld("windowAPI", {

@@ -1,4 +1,9 @@
-import type { AiMessage, AiReply, AiStatus } from "../types/ai";
+import type {
+  AiConversation,
+  AiConversationBundle,
+  AiSendResult,
+  AiStatus,
+} from "../types/ai";
 import { unwrap } from "../utils/errors";
 
 function api() {
@@ -10,7 +15,18 @@ function api() {
 
 export const aiService = {
   status: () => unwrap(api().getStatus()),
-  chat: (messages: AiMessage[]) => unwrap(api().chat(messages)),
+  getConversations: () => unwrap(api().getConversations()),
+  createConversation: () => unwrap(api().createConversation()),
+  getConversation: (id: string) => unwrap(api().getConversation(id)),
+  deleteConversation: (id: string) => unwrap(api().deleteConversation(id)),
+  sendMessage: (conversationId: string | null, content: string) =>
+    unwrap(api().sendMessage(conversationId, content)),
+  retry: (conversationId: string) => unwrap(api().retry(conversationId)),
 };
 
-export type { AiReply, AiStatus };
+export type {
+  AiConversation,
+  AiConversationBundle,
+  AiSendResult,
+  AiStatus,
+};
