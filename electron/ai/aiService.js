@@ -96,10 +96,21 @@ export async function sendMessage(conversationId, content, { emit } = {}) {
   });
 
   const history = buildHistory(conversation.id);
+  console.log(
+    `[ai:perf] History loaded for stream: ${history.length} messages, conversation=${conversation.id}`
+  );
+
+  let ipcEmits = 0;
+  let firstIpcEmitAt = null;
+  const streamStartedAt = performance.now();
 
   try {
     const reply = await streamChatWithAi(history, {
       onChunk: (delta, fullText) => {
+        ipcEmits += 1;
+        if (firstIpcEmitAt === null) {
+          firstIpcEmitAt = performance.now();
+        }
         emitSafe(emit, {
           requestId,
           phase: "chunk",
@@ -110,10 +121,21 @@ export async function sendMessage(conversationId, content, { emit } = {}) {
       },
     });
 
+    const persistStartedAt = performance.now();
     const assistantMessage = aiRepository.createMessage(
       conversation.id,
       "assistant",
       reply.content
+    );
+    console.log(
+      `[ai:perf] Persist assistant message: ${(performance.now() - persistStartedAt).toFixed(0)} ms`
+    );
+    console.log(
+      `[ai:perf] IPC chunk emits: ${ipcEmits}, firstEmitDeltaMs=${
+        firstIpcEmitAt === null
+          ? "n/a"
+          : (firstIpcEmitAt - streamStartedAt).toFixed(0)
+      }`
     );
 
     const result = {

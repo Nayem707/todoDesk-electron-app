@@ -133,13 +133,29 @@ function normalizeMessages(messages) {
  * Calls onChunk(delta, fullText) for each content piece, then returns the final text.
  */
 export async function streamChatWithAi(messages, { onChunk } = {}) {
+  const requestStartedAt = performance.now();
+  console.log("[ai:perf] Request started");
+
+  const statusStartedAt = performance.now();
   const status = await getAiStatus();
+  console.log(
+    `[ai:perf] Status check: ${(performance.now() - statusStartedAt).toFixed(0)} ms (available=${status.available}, modelReady=${status.modelReady}, model=${status.model})`
+  );
   if (!status.available || !status.modelReady) {
     throw new Error(status.message || OFFLINE_MESSAGE);
   }
 
   const payload = normalizeMessages(messages);
+  const historyChars = payload.reduce(
+    (sum, message) => sum + String(message.content || "").length,
+    0
+  );
+  console.log(
+    `[ai:perf] Prompt prepared: ${payload.length} messages (${historyChars} chars), stream=true, model=${MODEL}`
+  );
+
   let response;
+  const fetchStartedAt = performance.now();
   try {
     response = await fetch(`${OLLAMA_BASE}/api/chat`, {
       method: "POST",
@@ -154,6 +170,9 @@ export async function streamChatWithAi(messages, { onChunk } = {}) {
   } catch (error) {
     throw new Error(asErrorMessage(error, "Could not reach Ollama."));
   }
+  console.log(
+    `[ai:perf] HTTP response headers: ${(performance.now() - fetchStartedAt).toFixed(0)} ms (status=${response.status})`
+  );
 
   if (!response.ok) {
     let detail = "";
@@ -178,6 +197,39 @@ export async function streamChatWithAi(messages, { onChunk } = {}) {
   let buffer = "";
   let fullText = "";
   let sawDone = false;
+  let firstTokenAt = null;
+  let chunkCount = 0;
+  let lastDoneMeta = null;
+
+  const handleChunk = (chunk) => {
+    if (typeof chunk?.error === "string" && chunk.error) {
+      if (/not found|pull/i.test(chunk.error)) {
+        throw new Error(MISSING_MODEL_MESSAGE);
+      }
+      throw new Error(chunk.error);
+    }
+
+    const delta =
+      typeof chunk?.message?.content === "string" ? chunk.message.content : "";
+    if (delta) {
+      if (firstTokenAt === null) {
+        firstTokenAt = performance.now();
+        console.log(
+          `[ai:perf] First token received: ${(firstTokenAt - requestStartedAt).toFixed(0)} ms`
+        );
+      }
+      fullText += delta;
+      chunkCount += 1;
+      if (typeof onChunk === "function") {
+        onChunk(delta, fullText);
+      }
+    }
+
+    if (chunk?.done === true) {
+      sawDone = true;
+      lastDoneMeta = chunk;
+    }
+  };
 
   try {
     while (true) {
@@ -202,43 +254,14 @@ export async function streamChatWithAi(messages, { onChunk } = {}) {
         } catch {
           throw new Error("Ollama returned a malformed stream chunk.");
         }
-
-        if (typeof chunk?.error === "string" && chunk.error) {
-          if (/not found|pull/i.test(chunk.error)) {
-            throw new Error(MISSING_MODEL_MESSAGE);
-          }
-          throw new Error(chunk.error);
-        }
-
-        const delta =
-          typeof chunk?.message?.content === "string" ? chunk.message.content : "";
-        if (delta) {
-          fullText += delta;
-          if (typeof onChunk === "function") {
-            onChunk(delta, fullText);
-          }
-        }
-
-        if (chunk?.done === true) {
-          sawDone = true;
-        }
+        handleChunk(chunk);
       }
     }
 
     if (buffer.trim()) {
       try {
         const chunk = JSON.parse(buffer.trim());
-        const delta =
-          typeof chunk?.message?.content === "string" ? chunk.message.content : "";
-        if (delta) {
-          fullText += delta;
-          if (typeof onChunk === "function") {
-            onChunk(delta, fullText);
-          }
-        }
-        if (chunk?.done === true) {
-          sawDone = true;
-        }
+        handleChunk(chunk);
       } catch {
         /* trailing incomplete buffer after disconnect */
       }
@@ -252,6 +275,7 @@ export async function streamChatWithAi(messages, { onChunk } = {}) {
     throw new Error(asErrorMessage(error, "The AI stream was interrupted."));
   }
 
+  const completedAt = performance.now();
   const content = fullText.trim();
   if (!content) {
     throw new Error(
@@ -260,6 +284,38 @@ export async function streamChatWithAi(messages, { onChunk } = {}) {
         : "The AI stream ended before a reply was ready."
     );
   }
+
+  const totalMs = completedAt - requestStartedAt;
+  const genMs =
+    firstTokenAt === null ? totalMs : completedAt - firstTokenAt;
+  const evalCount = Number(lastDoneMeta?.eval_count) || 0;
+  const evalDurationNs = Number(lastDoneMeta?.eval_duration) || 0;
+  const promptEvalCount = Number(lastDoneMeta?.prompt_eval_count) || 0;
+  const promptEvalDurationNs = Number(lastDoneMeta?.prompt_eval_duration) || 0;
+  const loadDurationNs = Number(lastDoneMeta?.load_duration) || 0;
+  const totalDurationNs = Number(lastDoneMeta?.total_duration) || 0;
+  const ollamaTokPerSec =
+    evalDurationNs > 0 ? (evalCount / evalDurationNs) * 1e9 : 0;
+  const wallTokPerSec = genMs > 0 ? (evalCount || chunkCount) / (genMs / 1000) : 0;
+
+  console.log("[ai:perf] Generation completed:", {
+    firstTokenMs: firstTokenAt === null ? null : Number((firstTokenAt - requestStartedAt).toFixed(0)),
+    generationMs: Number(genMs.toFixed(0)),
+    totalResponseMs: Number(totalMs.toFixed(0)),
+    streamChunks: chunkCount,
+    responseChars: content.length,
+    totalTokens: evalCount || null,
+    tokensPerSecOllama: ollamaTokPerSec ? Number(ollamaTokPerSec.toFixed(2)) : null,
+    tokensPerSecWall: Number(wallTokPerSec.toFixed(2)),
+    promptTokens: promptEvalCount || null,
+    promptEvalMs: promptEvalDurationNs
+      ? Number((promptEvalDurationNs / 1e6).toFixed(0))
+      : null,
+    loadMs: loadDurationNs ? Number((loadDurationNs / 1e6).toFixed(0)) : null,
+    ollamaTotalMs: totalDurationNs
+      ? Number((totalDurationNs / 1e6).toFixed(0))
+      : null,
+  });
 
   return {
     role: "assistant",

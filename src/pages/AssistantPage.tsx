@@ -44,6 +44,12 @@ export function AssistantPage() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const streamRequestIdRef = useRef<string | null>(null);
+  const streamPerfRef = useRef<{
+    requestId: string;
+    startedAt: number;
+    firstChunkAt: number | null;
+    chunkCount: number;
+  } | null>(null);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftHydratedRef = useRef(cachedDraft !== null);
 
@@ -136,6 +142,13 @@ export function AssistantPage() {
   const handleStreamEvent = (event: AiStreamEvent) => {
     if (event.phase === "ready") {
       streamRequestIdRef.current = event.requestId;
+      streamPerfRef.current = {
+        requestId: event.requestId,
+        startedAt: performance.now(),
+        firstChunkAt: null,
+        chunkCount: 0,
+      };
+      console.log("[ai:perf:ui] Stream ready", event.requestId);
       setActiveId(event.conversationId);
       if (event.messages) {
         setMessages(event.messages);
@@ -152,11 +165,28 @@ export function AssistantPage() {
     }
 
     if (event.phase === "chunk") {
+      const perf = streamPerfRef.current;
+      if (perf && perf.requestId === event.requestId) {
+        perf.chunkCount += 1;
+        if (perf.firstChunkAt === null) {
+          perf.firstChunkAt = performance.now();
+          console.log(
+            `[ai:perf:ui] First chunk painted: ${(perf.firstChunkAt - perf.startedAt).toFixed(0)} ms`
+          );
+        }
+      }
       setStreamText(event.content ?? "");
       return;
     }
 
     if (event.phase === "done") {
+      const perf = streamPerfRef.current;
+      if (perf && perf.requestId === event.requestId) {
+        console.log("[ai:perf:ui] Stream done", {
+          chunks: perf.chunkCount,
+          totalMs: Number((performance.now() - perf.startedAt).toFixed(0)),
+        });
+      }
       if (event.messages) {
         setMessages(event.messages);
       }
