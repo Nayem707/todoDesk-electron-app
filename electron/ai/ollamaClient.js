@@ -82,14 +82,18 @@ export async function getAiStatus() {
 
   const body = await readJson(response);
   const models = Array.isArray(body?.models) ? body.models : [];
-  const modelReady = models.some((model) =>
+  const matched = models.find((model) =>
     isModelName(String(model?.name || model?.model || ""))
   );
+  const modelName = matched
+    ? String(matched.name || matched.model || MODEL)
+    : MODEL;
+  const modelReady = Boolean(matched);
 
   return {
     available: true,
     modelReady,
-    model: MODEL,
+    model: modelName,
     message: modelReady ? "" : MISSING_MODEL_MESSAGE,
   };
 }

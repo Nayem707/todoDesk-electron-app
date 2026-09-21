@@ -185,6 +185,63 @@ export function AssistantPage() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleNext = () => {
+      if (!mounted) {
+        return;
+      }
+      timer = setTimeout(() => {
+        void poll();
+      }, 8_000);
+    };
+
+    const poll = async () => {
+      try {
+        const next = await aiService.status();
+        if (mounted) {
+          setStatus(next);
+          setChecking(false);
+        }
+      } catch {
+        if (mounted) {
+          setStatus({
+            available: false,
+            modelReady: false,
+            model: "llama3.2",
+            message: "Could not reach Ollama.",
+          });
+          setChecking(false);
+        }
+      } finally {
+        scheduleNext();
+      }
+    };
+
+    timer = setTimeout(() => {
+      void poll();
+    }, 8_000);
+
+    const onFocus = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      void poll();
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      mounted = false;
+      if (timer) {
+        clearTimeout(timer);
+      }
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+  useEffect(() => {
     const list = listRef.current;
     if (!list) {
       return;
@@ -293,12 +350,13 @@ export function AssistantPage() {
     await runGeneration(() => aiService.retry(activeId));
   };
 
-  const blocked = Boolean(status && (!status.available || !status.modelReady));
-  const statusMessage = checking
-    ? "Checking Ollama…"
-    : blocked
-      ? status?.message
-      : `Ready · ${status?.model ?? "llama3.2"}`;
+  const aiNavState: AiNavState = checking && !status
+    ? "checking"
+    : !status || !status.available
+      ? "offline"
+      : !status.modelReady
+        ? "missing"
+        : "active";
   const canRetry =
     generationFailed &&
     Boolean(activeId) &&
@@ -389,10 +447,16 @@ export function AssistantPage() {
           </button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-semibold">{headerTitle}</h1>
-            <p className="truncate whitespace-pre-line text-xs text-[rgb(var(--muted))]">
-              {sending ? "Generating…" : statusMessage}
-            </p>
+            {sending && (
+              <p className="truncate text-xs text-[rgb(var(--muted))]">Generating…</p>
+            )}
           </div>
+          <AiStatusButton
+            state={aiNavState}
+            model={status?.model ?? "llama3.2"}
+            detail={status?.message}
+            onRefresh={() => void refreshStatus()}
+          />
           {!sidebarOpen && (
             <button
               type="button"
@@ -489,6 +553,70 @@ export function AssistantPage() {
 
 function messageKey(message: AiMessage) {
   return message.id ?? `${message.role}-${message.createdAt}-${message.content.slice(0, 24)}`;
+}
+
+type AiNavState = "checking" | "active" | "offline" | "missing";
+
+function AiStatusButton({
+  state,
+  model,
+  detail,
+  onRefresh,
+}: {
+  state: AiNavState;
+  model: string;
+  detail?: string;
+  onRefresh: () => void;
+}) {
+  const modelLabel = model.trim() || "llama3.2";
+  const label =
+    state === "active"
+      ? modelLabel
+      : state === "missing"
+        ? `${modelLabel} missing`
+        : state === "checking"
+          ? "Checking…"
+          : "Offline";
+
+  const title =
+    detail?.trim() ||
+    (state === "active"
+      ? `Ollama is running with ${modelLabel}`
+      : state === "missing"
+        ? `Ollama is running, but ${modelLabel} is not installed`
+        : state === "checking"
+          ? "Checking Ollama…"
+          : "Ollama is not running");
+
+  return (
+    <button
+      type="button"
+      onClick={onRefresh}
+      title={title}
+      aria-label={label}
+      className={cn(
+        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-colors",
+        state === "active" &&
+          "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-300",
+        state === "missing" &&
+          "border-amber-500/35 bg-amber-500/10 text-amber-800 hover:bg-amber-500/15 dark:text-amber-300",
+        (state === "offline" || state === "checking") &&
+          "border-[rgb(var(--border))] bg-black/5 text-[rgb(var(--muted))] hover:bg-black/10 dark:hover:bg-white/10"
+      )}
+    >
+      {state === "active" ? (
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+      ) : state === "missing" ? (
+        <span aria-hidden="true">⚠</span>
+      ) : (
+        <span
+          className="h-1.5 w-1.5 rounded-full border border-current opacity-70"
+          aria-hidden="true"
+        />
+      )}
+      <span className="max-w-[10rem] truncate whitespace-nowrap">{label}</span>
+    </button>
+  );
 }
 
 function MessageBubble({ message }: { message: AiMessage }) {
