@@ -25,6 +25,7 @@ export interface AiStatus {
 export interface AiSendResult {
   failed?: boolean;
   error?: string;
+  requestId?: string;
   conversationId?: string;
   conversation?: AiConversation;
   userMessage?: AiMessage;
@@ -35,4 +36,19 @@ export interface AiSendResult {
 export interface AiConversationBundle {
   conversation: AiConversation;
   messages: AiMessage[];
+}
+
+export type AiStreamPhase = "ready" | "chunk" | "done" | "error";
+
+export interface AiStreamEvent {
+  requestId: string;
+  phase: AiStreamPhase;
+  conversationId: string;
+  conversation?: AiConversation;
+  userMessage?: AiMessage;
+  assistantMessage?: AiMessage;
+  messages?: AiMessage[];
+  delta?: string;
+  content?: string;
+  error?: string;
 }

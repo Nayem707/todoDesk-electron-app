@@ -1,4 +1,5 @@
-import { chatWithAi, getAiStatus } from "./ollamaClient.js";
+import crypto from "crypto";
+import { streamChatWithAi, getAiStatus } from "./ollamaClient.js";
 import * as aiRepository from "../database/aiRepository.js";
 
 export { getAiStatus };
@@ -19,11 +20,42 @@ export function deleteConversation(conversationId) {
   return aiRepository.deleteConversation(conversationId);
 }
 
+function emitSafe(emit, payload) {
+  if (typeof emit !== "function") {
+    return;
+  }
+  try {
+    emit(payload);
+  } catch (error) {
+    console.error("[ai] stream emit failed", error);
+  }
+}
+
+function generationFailed(error, conversationId) {
+  const failed = new Error(
+    error instanceof Error ? error.message : "The AI request failed. Try again."
+  );
+  failed.code = "AI_GENERATION_FAILED";
+  failed.conversationId = conversationId;
+  failed.messages = aiRepository.getMessagesByConversation(conversationId);
+  return failed;
+}
+
+function buildHistory(conversationId) {
+  return aiRepository
+    .getMessagesByConversation(conversationId)
+    .filter((message) => message.role === "user" || message.role === "assistant")
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
+}
+
 /**
- * Persist the user message, call Ollama with stored history, then persist the reply.
+ * Persist the user message, stream Ollama tokens to the renderer, then persist the reply.
  * If Ollama fails, the user message remains in the database.
  */
-export async function sendMessage(conversationId, content) {
+export async function sendMessage(conversationId, content, { emit } = {}) {
   const text = typeof content === "string" ? content.trim() : "";
   if (!text) {
     throw new Error("Enter a message before sending.");
@@ -42,45 +74,74 @@ export async function sendMessage(conversationId, content) {
     conversation = aiRepository.createConversation("New chat");
   }
 
+  const requestId = crypto.randomUUID();
   const userMessage = aiRepository.createMessage(conversation.id, "user", text);
   conversation = aiRepository.getConversationById(conversation.id);
 
-  const history = aiRepository
-    .getMessagesByConversation(conversation.id)
-    .filter((message) => message.role === "user" || message.role === "assistant")
-    .map((message) => ({
-      role: message.role,
-      content: message.content,
-    }));
+  emitSafe(emit, {
+    requestId,
+    phase: "ready",
+    conversationId: conversation.id,
+    conversation,
+    userMessage,
+    messages: aiRepository.getMessagesByConversation(conversation.id),
+  });
+
+  const history = buildHistory(conversation.id);
 
   try {
-    const reply = await chatWithAi(history);
+    const reply = await streamChatWithAi(history, {
+      onChunk: (delta, fullText) => {
+        emitSafe(emit, {
+          requestId,
+          phase: "chunk",
+          conversationId: conversation.id,
+          delta,
+          content: fullText,
+        });
+      },
+    });
+
     const assistantMessage = aiRepository.createMessage(
       conversation.id,
       "assistant",
       reply.content
     );
-    return {
+
+    const result = {
+      requestId,
       conversation: aiRepository.getConversationById(conversation.id),
       userMessage,
       assistantMessage,
       messages: aiRepository.getMessagesByConversation(conversation.id),
     };
+
+    emitSafe(emit, {
+      requestId,
+      phase: "done",
+      conversationId: conversation.id,
+      conversation: result.conversation,
+      assistantMessage,
+      messages: result.messages,
+    });
+
+    return result;
   } catch (error) {
-    const failed = new Error(
-      error instanceof Error ? error.message : "The AI request failed. Try again."
-    );
-    failed.code = "AI_GENERATION_FAILED";
-    failed.conversationId = conversation.id;
-    failed.messages = aiRepository.getMessagesByConversation(conversation.id);
-    throw failed;
+    emitSafe(emit, {
+      requestId,
+      phase: "error",
+      conversationId: conversation.id,
+      error: error instanceof Error ? error.message : "The AI request failed. Try again.",
+      messages: aiRepository.getMessagesByConversation(conversation.id),
+    });
+    throw generationFailed(error, conversation.id);
   }
 }
 
 /**
  * Retry assistant generation when the last stored message is from the user.
  */
-export async function retryAssistant(conversationId) {
+export async function retryAssistant(conversationId, { emit } = {}) {
   const conversation = aiRepository.getConversationById(conversationId);
   if (!conversation) {
     throw new Error("Conversation not found.");
@@ -92,32 +153,61 @@ export async function retryAssistant(conversationId) {
     throw new Error("There is nothing to retry. Send a new message first.");
   }
 
-  const history = messages
-    .filter((message) => message.role === "user" || message.role === "assistant")
-    .map((message) => ({
-      role: message.role,
-      content: message.content,
-    }));
+  const requestId = crypto.randomUUID();
+  emitSafe(emit, {
+    requestId,
+    phase: "ready",
+    conversationId,
+    conversation,
+    messages,
+  });
+
+  const history = buildHistory(conversationId);
 
   try {
-    const reply = await chatWithAi(history);
+    const reply = await streamChatWithAi(history, {
+      onChunk: (delta, fullText) => {
+        emitSafe(emit, {
+          requestId,
+          phase: "chunk",
+          conversationId,
+          delta,
+          content: fullText,
+        });
+      },
+    });
+
     const assistantMessage = aiRepository.createMessage(
       conversationId,
       "assistant",
       reply.content
     );
-    return {
+
+    const result = {
+      requestId,
       conversation: aiRepository.getConversationById(conversationId),
       assistantMessage,
       messages: aiRepository.getMessagesByConversation(conversationId),
     };
+
+    emitSafe(emit, {
+      requestId,
+      phase: "done",
+      conversationId,
+      conversation: result.conversation,
+      assistantMessage,
+      messages: result.messages,
+    });
+
+    return result;
   } catch (error) {
-    const failed = new Error(
-      error instanceof Error ? error.message : "The AI request failed. Try again."
-    );
-    failed.code = "AI_GENERATION_FAILED";
-    failed.conversationId = conversationId;
-    failed.messages = aiRepository.getMessagesByConversation(conversationId);
-    throw failed;
+    emitSafe(emit, {
+      requestId,
+      phase: "error",
+      conversationId,
+      error: error instanceof Error ? error.message : "The AI request failed. Try again.",
+      messages: aiRepository.getMessagesByConversation(conversationId),
+    });
+    throw generationFailed(error, conversationId);
   }
 }

@@ -3,6 +3,7 @@ import type {
   AiConversationBundle,
   AiSendResult,
   AiStatus,
+  AiStreamEvent,
 } from "../types/ai";
 import { unwrap } from "../utils/errors";
 
@@ -22,6 +23,7 @@ export const aiService = {
   sendMessage: (conversationId: string | null, content: string) =>
     unwrap(api().sendMessage(conversationId, content)),
   retry: (conversationId: string) => unwrap(api().retry(conversationId)),
+  onStream: (callback: (event: AiStreamEvent) => void) => api().onStream(callback),
 };
 
 export type {
@@ -29,4 +31,5 @@ export type {
   AiConversationBundle,
   AiSendResult,
   AiStatus,
+  AiStreamEvent,
 };

@@ -48,6 +48,11 @@ contextBridge.exposeInMainWorld("aiAPI", {
   sendMessage: (conversationId, content) =>
     invoke("ai:sendMessage", conversationId, content),
   retry: (conversationId) => invoke("ai:retry", conversationId),
+  onStream: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("ai:stream", listener);
+    return () => ipcRenderer.removeListener("ai:stream", listener);
+  },
 });
 
 contextBridge.exposeInMainWorld("windowAPI", {

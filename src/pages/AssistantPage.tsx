@@ -9,7 +9,13 @@ import {
 } from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
 import { aiService } from "../services/aiService";
-import type { AiConversation, AiMessage, AiSendResult, AiStatus } from "../types/ai";
+import type {
+  AiConversation,
+  AiMessage,
+  AiSendResult,
+  AiStatus,
+  AiStreamEvent,
+} from "../types/ai";
 import { cn } from "../utils/cn";
 import { formatDateTime } from "../utils/dates";
 import { getErrorMessage } from "../utils/errors";
@@ -20,6 +26,7 @@ export function AssistantPage() {
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [streamText, setStreamText] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingChat, setLoadingChat] = useState(false);
   const [status, setStatus] = useState<AiStatus | null>(null);
@@ -29,6 +36,7 @@ export function AssistantPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const streamRequestIdRef = useRef<string | null>(null);
 
   const activeConversation = conversations.find((item) => item.id === activeId) ?? null;
 
@@ -65,6 +73,47 @@ export function AssistantPage() {
     }
   };
 
+  const handleStreamEvent = (event: AiStreamEvent) => {
+    if (event.phase === "ready") {
+      streamRequestIdRef.current = event.requestId;
+      setActiveId(event.conversationId);
+      if (event.messages) {
+        setMessages(event.messages);
+      }
+      setStreamText("");
+      return;
+    }
+
+    if (
+      streamRequestIdRef.current &&
+      event.requestId !== streamRequestIdRef.current
+    ) {
+      return;
+    }
+
+    if (event.phase === "chunk") {
+      setStreamText(event.content ?? "");
+      return;
+    }
+
+    if (event.phase === "done") {
+      if (event.messages) {
+        setMessages(event.messages);
+      }
+      setStreamText(null);
+      return;
+    }
+
+    if (event.phase === "error") {
+      if (event.messages) {
+        setMessages(event.messages);
+      }
+      setStreamText(null);
+      setGenerationFailed(true);
+      setError(event.error || "The AI request failed. Try again.");
+    }
+  };
+
   const applySendResult = (result: AiSendResult) => {
     if (result.conversation?.id) {
       setActiveId(result.conversation.id);
@@ -74,6 +123,7 @@ export function AssistantPage() {
     if (result.messages) {
       setMessages(result.messages);
     }
+    setStreamText(null);
     if (result.failed) {
       setGenerationFailed(true);
       setError(result.error || "The AI request failed. Try again.");
@@ -85,9 +135,13 @@ export function AssistantPage() {
   };
 
   const openConversation = async (id: string) => {
+    if (sending) {
+      return;
+    }
     setLoadingChat(true);
     setError("");
     setGenerationFailed(false);
+    setStreamText(null);
     try {
       const bundle = await aiService.getConversation(id);
       setActiveId(bundle.conversation.id);
@@ -115,11 +169,15 @@ export function AssistantPage() {
       return;
     }
     list.scrollTop = list.scrollHeight;
-  }, [messages, sending]);
+  }, [messages, sending, streamText]);
 
   const startNewChat = async () => {
+    if (sending) {
+      return;
+    }
     setError("");
     setGenerationFailed(false);
+    setStreamText(null);
     try {
       const conversation = await aiService.createConversation();
       setActiveId(conversation.id);
@@ -133,6 +191,9 @@ export function AssistantPage() {
   };
 
   const deleteActive = async (id: string) => {
+    if (sending) {
+      return;
+    }
     try {
       await aiService.deleteConversation(id);
       const remaining = await refreshConversations();
@@ -151,6 +212,41 @@ export function AssistantPage() {
     }
   };
 
+  const runGeneration = async (action: () => Promise<AiSendResult>) => {
+    streamRequestIdRef.current = null;
+    setSending(true);
+    setError("");
+    setGenerationFailed(false);
+    setStreamText("");
+
+    const stopListening = aiService.onStream(handleStreamEvent);
+
+    try {
+      const result = await action();
+      applySendResult(result);
+      await refreshConversations();
+    } catch (runError) {
+      setStreamText(null);
+      setGenerationFailed(true);
+      setError(getErrorMessage(runError, "The AI request failed. Try again."));
+      void refreshStatus();
+      if (activeId) {
+        try {
+          const bundle = await aiService.getConversation(activeId);
+          setMessages(bundle.messages);
+        } catch {
+          /* keep current bubbles */
+        }
+      }
+      await refreshConversations();
+    } finally {
+      stopListening();
+      streamRequestIdRef.current = null;
+      setSending(false);
+      inputRef.current?.focus();
+    }
+  };
+
   const send = async () => {
     const content = draft.trim();
     if (!content || sending) {
@@ -161,53 +257,15 @@ export function AssistantPage() {
     }
 
     setDraft("");
-    setSending(true);
-    setError("");
-    setGenerationFailed(false);
     setMessages((current) => [...current, { role: "user", content }]);
-
-    try {
-      const result = await aiService.sendMessage(activeId, content);
-      applySendResult(result);
-      await refreshConversations();
-    } catch (sendError) {
-      setGenerationFailed(true);
-      setError(getErrorMessage(sendError, "The AI request failed. Try again."));
-      void refreshStatus();
-      if (activeId) {
-        try {
-          const bundle = await aiService.getConversation(activeId);
-          setMessages(bundle.messages);
-        } catch {
-          /* keep optimistic user bubble */
-        }
-      }
-      await refreshConversations();
-    } finally {
-      setSending(false);
-      inputRef.current?.focus();
-    }
+    await runGeneration(() => aiService.sendMessage(activeId, content));
   };
 
   const retry = async () => {
     if (!activeId || sending) {
       return;
     }
-    setSending(true);
-    setError("");
-    setGenerationFailed(false);
-    try {
-      const result = await aiService.retry(activeId);
-      applySendResult(result);
-      await refreshConversations();
-    } catch (retryError) {
-      setGenerationFailed(true);
-      setError(getErrorMessage(retryError, "The AI request failed. Try again."));
-      void refreshStatus();
-    } finally {
-      setSending(false);
-      inputRef.current?.focus();
-    }
+    await runGeneration(() => aiService.retry(activeId));
   };
 
   const blocked = Boolean(status && (!status.available || !status.modelReady));
@@ -222,6 +280,7 @@ export function AssistantPage() {
     messages.length > 0 &&
     messages[messages.length - 1]?.role === "user";
   const headerTitle = activeConversation?.title ?? "Assistant";
+  const showEmpty = messages.length === 0 && !sending && streamText === null;
 
   return (
     <div className="flex h-[calc(100vh-40px)] min-h-0 overflow-hidden bg-[rgb(var(--bg))]">
@@ -239,7 +298,8 @@ export function AssistantPage() {
           <button
             type="button"
             onClick={() => void startNewChat()}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[rgb(var(--accent))] px-3 py-2 text-sm font-medium text-[rgb(var(--accent-foreground))]"
+            disabled={sending}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[rgb(var(--accent))] px-3 py-2 text-sm font-medium text-[rgb(var(--accent-foreground))] disabled:opacity-40"
           >
             <MessageSquarePlus size={15} />
             New Chat
@@ -264,7 +324,8 @@ export function AssistantPage() {
                 <button
                   type="button"
                   onClick={() => void openConversation(conversation.id)}
-                  className="min-w-0 flex-1 text-left"
+                  disabled={sending}
+                  className="min-w-0 flex-1 text-left disabled:opacity-60"
                 >
                   <p className="truncate text-sm font-medium">{conversation.title}</p>
                   <p className="mt-0.5 text-[11px] text-[rgb(var(--muted))]">
@@ -275,11 +336,12 @@ export function AssistantPage() {
                   type="button"
                   title="Delete conversation"
                   aria-label={`Delete ${conversation.title}`}
+                  disabled={sending}
                   onClick={(event) => {
                     event.stopPropagation();
                     void deleteActive(conversation.id);
                   }}
-                  className="rounded-md p-1.5 text-[rgb(var(--muted))] opacity-0 hover:bg-black/5 hover:text-[rgb(var(--danger))] group-hover:opacity-100 focus:opacity-100 dark:hover:bg-white/10"
+                  className="rounded-md p-1.5 text-[rgb(var(--muted))] opacity-0 hover:bg-black/5 hover:text-[rgb(var(--danger))] group-hover:opacity-100 focus:opacity-100 disabled:opacity-0 dark:hover:bg-white/10"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -303,14 +365,15 @@ export function AssistantPage() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-semibold">{headerTitle}</h1>
             <p className="truncate whitespace-pre-line text-xs text-[rgb(var(--muted))]">
-              {statusMessage}
+              {sending ? "Generating…" : statusMessage}
             </p>
           </div>
           {!sidebarOpen && (
             <button
               type="button"
               onClick={() => void startNewChat()}
-              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/10"
+              disabled={sending}
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm hover:bg-black/5 disabled:opacity-40 dark:hover:bg-white/10"
             >
               <MessageSquarePlus size={15} />
               New Chat
@@ -341,7 +404,7 @@ export function AssistantPage() {
         <div ref={listRef} className="todo-scroll min-h-0 flex-1 px-4 py-5 sm:px-6 lg:px-8">
           {loadingChat ? (
             <p className="text-sm text-[rgb(var(--muted))]">Loading conversation…</p>
-          ) : messages.length === 0 && !sending ? (
+          ) : showEmpty ? (
             <div className="flex h-full items-center justify-center">
               <EmptyState
                 title="Ask the local assistant"
@@ -359,7 +422,8 @@ export function AssistantPage() {
               {messages.map((message) => (
                 <MessageBubble key={messageKey(message)} message={message} />
               ))}
-              {sending && <TypingIndicator />}
+              {streamText ? <StreamingBubble content={streamText} /> : null}
+              {sending && !streamText ? <TypingIndicator /> : null}
             </div>
           )}
         </div>
@@ -422,6 +486,24 @@ function MessageBubble({ message }: { message: AiMessage }) {
         {isUser ? "You" : "Assistant"}
       </p>
       <p className="select-text whitespace-pre-wrap break-words">{message.content}</p>
+    </article>
+  );
+}
+
+function StreamingBubble({ content }: { content: string }) {
+  if (!content) {
+    return null;
+  }
+
+  return (
+    <article className="mr-auto max-w-[85%] rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 py-3 text-sm leading-6">
+      <p className="mb-1 text-[11px] font-medium uppercase tracking-wide opacity-70">
+        Assistant
+      </p>
+      <p className="select-text whitespace-pre-wrap break-words">
+        {content}
+        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-[rgb(var(--muted))] align-[-2px]" />
+      </p>
     </article>
   );
 }

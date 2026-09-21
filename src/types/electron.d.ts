@@ -1,4 +1,11 @@
-import type { AiConversation, AiConversationBundle, AiMessage, AiSendResult, AiStatus } from "./ai";
+import type {
+  AiConversation,
+  AiConversationBundle,
+  AiMessage,
+  AiSendResult,
+  AiStatus,
+  AiStreamEvent,
+} from "./ai";
 import type { ClipboardItem } from "./clipboard";
 import type { MarkdownDocument } from "./markdown";
 import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
@@ -48,6 +55,7 @@ export interface AiAPI {
     content: string
   ) => Promise<IpcResult<AiSendResult>>;
   retry: (conversationId: string) => Promise<IpcResult<AiSendResult>>;
+  onStream: (callback: (event: AiStreamEvent) => void) => () => void;
 }
 
 export interface WindowAPI {

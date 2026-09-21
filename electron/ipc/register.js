@@ -60,34 +60,60 @@ export function registerIpcHandlers(getMainWindow) {
   handle("ai:createConversation", () => aiService.createConversation());
   handle("ai:getConversation", (id) => aiService.getConversation(id));
   handle("ai:deleteConversation", (id) => aiService.deleteConversation(id));
-  handle("ai:sendMessage", async (conversationId, content) => {
+
+  ipcMain.handle("ai:sendMessage", async (event, conversationId, content) => {
     try {
-      return await aiService.sendMessage(conversationId, content);
+      const data = await aiService.sendMessage(conversationId, content, {
+        emit: (payload) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("ai:stream", payload);
+          }
+        },
+      });
+      return { ok: true, data };
     } catch (error) {
       if (error && error.code === "AI_GENERATION_FAILED") {
         return {
-          failed: true,
-          error: error.message,
-          conversationId: error.conversationId,
-          messages: error.messages ?? [],
+          ok: true,
+          data: {
+            failed: true,
+            error: error.message,
+            conversationId: error.conversationId,
+            messages: error.messages ?? [],
+          },
         };
       }
-      throw error;
+      const message = error instanceof Error ? error.message : "Unexpected error";
+      console.error("[IPC ai:sendMessage]", error);
+      return { ok: false, error: message };
     }
   });
-  handle("ai:retry", async (conversationId) => {
+
+  ipcMain.handle("ai:retry", async (event, conversationId) => {
     try {
-      return await aiService.retryAssistant(conversationId);
+      const data = await aiService.retryAssistant(conversationId, {
+        emit: (payload) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("ai:stream", payload);
+          }
+        },
+      });
+      return { ok: true, data };
     } catch (error) {
       if (error && error.code === "AI_GENERATION_FAILED") {
         return {
-          failed: true,
-          error: error.message,
-          conversationId: error.conversationId,
-          messages: error.messages ?? [],
+          ok: true,
+          data: {
+            failed: true,
+            error: error.message,
+            conversationId: error.conversationId,
+            messages: error.messages ?? [],
+          },
         };
       }
-      throw error;
+      const message = error instanceof Error ? error.message : "Unexpected error";
+      console.error("[IPC ai:retry]", error);
+      return { ok: false, error: message };
     }
   });
 
