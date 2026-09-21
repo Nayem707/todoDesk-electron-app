@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
+import { ChatMarkdown } from "../components/ChatMarkdown";
 import { aiService } from "../services/aiService";
 import type {
   AiConversation,
@@ -709,7 +710,7 @@ function MessageBubble({ message }: { message: AiMessage }) {
       {isUser ? (
         <CollapsibleUserText content={message.content} />
       ) : (
-        <p className="select-text whitespace-pre-wrap break-words">{message.content}</p>
+        <ChatMarkdown content={message.content} />
       )}
     </article>
   );
@@ -814,10 +815,11 @@ function StreamingBubble({ content }: { content: string }) {
       <p className="mb-1 text-[11px] font-medium uppercase tracking-wide opacity-70">
         Assistant
       </p>
-      <p className="select-text whitespace-pre-wrap break-words">
-        {content}
-        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-[rgb(var(--muted))] align-[-2px]" />
-      </p>
+      <ChatMarkdown content={content} />
+      <span
+        className="mt-1 inline-block h-4 w-0.5 animate-pulse bg-[rgb(var(--muted))]"
+        aria-hidden="true"
+      />
     </article>
   );
 }

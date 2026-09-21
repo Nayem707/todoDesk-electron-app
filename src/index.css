@@ -207,3 +207,79 @@ select {
   max-width: 100%;
   border-radius: 0.5rem;
 }
+
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.chat-markdown-table-wrap table {
+  display: table;
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+}
+
+.chat-code-block {
+  margin: 0.75em 0;
+  overflow: hidden;
+  border: 1px solid rgb(var(--border));
+  border-radius: 0.75rem;
+  background: rgb(var(--bg));
+}
+
+.chat-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgb(var(--border));
+  padding: 0.45rem 0.75rem;
+  background: rgb(var(--surface));
+}
+
+.chat-code-lang {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--muted));
+}
+
+.chat-code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--bg));
+  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgb(var(--muted));
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.chat-code-copy:hover {
+  color: rgb(var(--text));
+  background: rgb(var(--surface));
+}
+
+.chat-code-block pre,
+.chat-code-block > div {
+  overflow-x: auto !important;
+}
+
+.chat-markdown input[type="checkbox"] {
+  margin-right: 0.4em;
+  vertical-align: middle;
+}
