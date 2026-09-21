@@ -476,10 +476,10 @@ function MessageBubble({ message }: { message: AiMessage }) {
   return (
     <article
       className={cn(
-        "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6",
+        "rounded-2xl px-4 py-3 text-sm leading-6",
         isUser
-          ? "ml-auto bg-[rgb(var(--accent))] text-[rgb(var(--accent-foreground))]"
-          : "mr-auto border border-[rgb(var(--border))] bg-[rgb(var(--surface))]"
+          ? "ml-auto max-w-[85%] bg-[rgb(var(--accent))] text-[rgb(var(--accent-foreground))]"
+          : "mr-auto w-full max-w-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))]"
       )}
     >
       <p className="mb-1 text-[11px] font-medium uppercase tracking-wide opacity-70">
@@ -496,7 +496,7 @@ function StreamingBubble({ content }: { content: string }) {
   }
 
   return (
-    <article className="mr-auto max-w-[85%] rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 py-3 text-sm leading-6">
+    <article className="mr-auto w-full max-w-full rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 py-3 text-sm leading-6">
       <p className="mb-1 text-[11px] font-medium uppercase tracking-wide opacity-70">
         Assistant
       </p>
@@ -510,7 +510,7 @@ function StreamingBubble({ content }: { content: string }) {
 
 function TypingIndicator() {
   return (
-    <div className="mr-auto flex max-w-[85%] items-center gap-2 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 py-3">
+    <div className="mr-auto flex w-full max-w-full items-center gap-2 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 py-3">
       <p className="text-[11px] font-medium uppercase tracking-wide text-[rgb(var(--muted))]">
         Assistant
       </p>
