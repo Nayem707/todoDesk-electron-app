@@ -8,7 +8,7 @@ export type TodoTab =
   | "completed"
   | "high";
 
-export type AppView = "todo" | "clipboard" | "markdown" | "settings";
+export type AppView = "todo" | "clipboard" | "markdown" | "assistant" | "settings";
 
 export type FilterOption =
   | "all"

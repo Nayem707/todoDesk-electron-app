@@ -3,6 +3,7 @@ import * as todoRepository from "../database/todoRepository.js";
 import * as settingsRepository from "../database/settingsRepository.js";
 import * as clipboardRepository from "../database/clipboardRepository.js";
 import * as markdownRepository from "../database/markdownRepository.js";
+import { chatWithAi, getAiStatus } from "../ai/ollamaClient.js";
 import { writeClipboardInternal } from "../clipboardWatcher.js";
 
 function handle(channel, handler) {
@@ -53,6 +54,9 @@ export function registerIpcHandlers(getMainWindow) {
   handle("markdown:getAll", () => markdownRepository.getAllMarkdownDocuments());
   handle("markdown:save", (input) => markdownRepository.saveMarkdownDocument(input));
   handle("markdown:delete", (id) => markdownRepository.deleteMarkdownDocument(id));
+
+  handle("ai:status", () => getAiStatus());
+  handle("ai:chat", (messages) => chatWithAi(messages));
 
   void getMainWindow;
 }

@@ -39,6 +39,11 @@ contextBridge.exposeInMainWorld("markdownAPI", {
   deleteDocument: (id) => invoke("markdown:delete", id),
 });
 
+contextBridge.exposeInMainWorld("aiAPI", {
+  getStatus: () => invoke("ai:status"),
+  chat: (messages) => invoke("ai:chat", messages),
+});
+
 contextBridge.exposeInMainWorld("windowAPI", {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),

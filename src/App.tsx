@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Toaster } from "sonner";
 import { AppShell } from "./layouts/AppShell";
+import { AssistantPage } from "./pages/AssistantPage";
 import { ClipboardPage } from "./pages/ClipboardPage";
 import { MarkdownPage } from "./pages/MarkdownPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -46,7 +47,7 @@ function AppFrame() {
 
   useKeyboardShortcuts({
     onNew: () => {
-      if (view !== "settings" && view !== "clipboard" && view !== "markdown") {
+      if (view !== "settings" && view !== "clipboard" && view !== "markdown" && view !== "assistant") {
         openCreate();
       }
     },
@@ -66,6 +67,9 @@ function AppFrame() {
     }
     if (view === "markdown") {
       return <MarkdownPage />;
+    }
+    if (view === "assistant") {
+      return <AssistantPage />;
     }
     return (
       <TodoPage

@@ -1,3 +1,4 @@
+import type { AiMessage, AiReply, AiStatus } from "./ai";
 import type { ClipboardItem } from "./clipboard";
 import type { MarkdownDocument } from "./markdown";
 import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
@@ -36,6 +37,11 @@ export interface MarkdownAPI {
   deleteDocument: (id: string) => Promise<IpcResult<{ id: string }>>;
 }
 
+export interface AiAPI {
+  getStatus: () => Promise<IpcResult<AiStatus>>;
+  chat: (messages: AiMessage[]) => Promise<IpcResult<AiReply>>;
+}
+
 export interface WindowAPI {
   minimize: () => void;
   maximize: () => void;
@@ -50,6 +56,7 @@ declare global {
     settingsAPI: SettingsAPI;
     clipboardAPI: ClipboardAPI;
     markdownAPI: MarkdownAPI;
+    aiAPI: AiAPI;
     windowAPI: WindowAPI;
   }
 }

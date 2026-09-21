@@ -2,7 +2,7 @@
 
 TodoDesk is a desktop todo application. It runs as a native window on Windows, macOS, and Linux. Tasks are stored on your computer, not in the cloud.
 
-You can create, edit, complete, search, filter, and sort tasks. Each task can have a priority, due date, description, and tags. The app also includes an overview, a clipboard history manager, a Markdown editor with live preview, settings, light/dark theme, and a custom title bar (minimize, maximize, close).
+You can create, edit, complete, search, filter, and sort tasks. Each task can have a priority, due date, description, and tags. The app also includes an overview, a clipboard history manager, a Markdown editor with live preview, a local AI assistant, settings, light/dark theme, and a custom title bar (minimize, maximize, close).
 
 This README is written for beginners. You do not need prior Electron experience to follow the setup steps.
 
@@ -107,7 +107,7 @@ Stop the app with `Ctrl+C` in the terminal, or close the TodoDesk window.
 When the window opens you will see:
 
 - A **custom title bar** (minimize, maximize/restore, close)
-- A **sidebar** with Todo, Clipboard, Markdown, and Settings
+- A **sidebar** with Todo, Clipboard, Markdown, Assistant, and Settings
 - A **New Task** button
 - **Todo tabs** on the Todo page (Overview, All Tasks, Today, Upcoming, Completed, High Priority)
 
@@ -206,6 +206,29 @@ Click **Markdown** in the sidebar for a live Markdown editor.
 - **Edit** loads the document into the editor
 - **Back to editor** returns to the split view
 
+### Assistant
+
+Click **Assistant** in the sidebar to chat with a local model through [Ollama](https://ollama.com/).
+
+The renderer never calls Ollama directly. The flow is:
+
+```text
+Assistant page → preload aiAPI → IPC → main process → http://127.0.0.1:11434/api/chat
+```
+
+Model: `llama3.2`.
+
+Before chatting:
+
+```bash
+ollama serve
+ollama pull llama3.2
+```
+
+Then open Assistant, type a message, and press Send. The conversation stays in the page until you click **Clear**. If Ollama is stopped, or the model is missing, the page shows a short error instead of a stack trace.
+
+The chat API is isolated so later prompts can include todos or clipboard text without changing the UI transport.
+
 ### Keyboard shortcuts
 
 | Shortcut           | Action                         |
@@ -232,7 +255,7 @@ Electron main process          (Node.js: window, files, SQLite)
         ↓
 Preload script                 (contextBridge — the only bridge)
         ↓
-Secure APIs                    window.todoAPI / settingsAPI / clipboardAPI / markdownAPI / windowAPI
+Secure APIs                    window.todoAPI / settingsAPI / clipboardAPI / markdownAPI / aiAPI / windowAPI
         ↓
 React renderer                 (the UI you see)
 ```
@@ -263,8 +286,10 @@ The database is the source of truth. React state is only the current UI snapshot
 app/
 ├── electron/                 # Desktop / main process
 │   ├── main.js               # Window, security, app lifecycle, clipboard watcher start/stop
-│   ├── preload.cjs           # Exposes todoAPI, settingsAPI, clipboardAPI, markdownAPI, windowAPI
+│   ├── preload.cjs           # Exposes todoAPI, settingsAPI, clipboardAPI, markdownAPI, aiAPI, windowAPI
 │   ├── clipboardWatcher.js   # Polls OS clipboard; ignores TodoDesk “copy again”
+│   ├── ai/
+│   │   └── ollamaClient.js   # Local Ollama chat (llama3.2)
 │   ├── windowState.js        # Remembers window size and position
 │   ├── ipc/
 │   │   └── register.js       # IPC handlers (errors wrapped, never swallowed)
@@ -278,7 +303,7 @@ app/
 │       └── settingsRepository.js
 ├── src/                      # React UI (renderer)
 │   ├── components/           # Cards, modal, dialogs, tabs, clipboard filter bar
-│   ├── pages/                # Todo, Clipboard, Markdown, Settings
+│   ├── pages/                # Todo, Clipboard, Markdown, Assistant, Settings
 │   ├── layouts/              # Title bar, sidebar, app shell
 │   ├── hooks/
 │   ├── services/             # Calls the preload APIs (no DB code here)
@@ -322,6 +347,9 @@ window.clipboardAPI.togglePin(id);
 window.markdownAPI.getDocuments();
 window.markdownAPI.saveDocument({ id, content });
 window.markdownAPI.deleteDocument(id);
+
+window.aiAPI.getStatus();
+window.aiAPI.chat(messages);
 
 window.windowAPI.minimize();
 window.windowAPI.maximize();
