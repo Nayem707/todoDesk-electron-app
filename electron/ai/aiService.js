@@ -20,6 +20,14 @@ export function deleteConversation(conversationId) {
   return aiRepository.deleteConversation(conversationId);
 }
 
+export function getChatDraft() {
+  return aiRepository.getChatDraft();
+}
+
+export function saveChatDraft(content) {
+  return aiRepository.saveChatDraft(content);
+}
+
 function emitSafe(emit, payload) {
   if (typeof emit !== "function") {
     return;

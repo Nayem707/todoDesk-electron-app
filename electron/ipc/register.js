@@ -60,6 +60,8 @@ export function registerIpcHandlers(getMainWindow) {
   handle("ai:createConversation", () => aiService.createConversation());
   handle("ai:getConversation", (id) => aiService.getConversation(id));
   handle("ai:deleteConversation", (id) => aiService.deleteConversation(id));
+  handle("ai:getDraft", () => aiService.getChatDraft());
+  handle("ai:saveDraft", (content) => aiService.saveChatDraft(content));
 
   ipcMain.handle("ai:sendMessage", async (event, conversationId, content) => {
     try {

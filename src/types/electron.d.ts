@@ -50,6 +50,8 @@ export interface AiAPI {
   createConversation: () => Promise<IpcResult<AiConversation>>;
   getConversation: (id: string) => Promise<IpcResult<AiConversationBundle>>;
   deleteConversation: (id: string) => Promise<IpcResult<{ id: string }>>;
+  getDraft: () => Promise<IpcResult<string>>;
+  saveDraft: (content: string) => Promise<IpcResult<string>>;
   sendMessage: (
     conversationId: string | null,
     content: string

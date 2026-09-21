@@ -19,11 +19,16 @@ import { cn } from "../utils/cn";
 import { formatDateTime } from "../utils/dates";
 import { getErrorMessage } from "../utils/errors";
 
+const DRAFT_SAVE_DELAY_MS = 250;
+
+/** In-memory draft so navigating away/back restores instantly without a flash. */
+let cachedDraft: string | null = null;
+
 export function AssistantPage() {
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => cachedDraft ?? "");
   const [sending, setSending] = useState(false);
   const [streamText, setStreamText] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(true);
@@ -36,6 +41,8 @@ export function AssistantPage() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const streamRequestIdRef = useRef<string | null>(null);
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftHydratedRef = useRef(cachedDraft !== null);
 
   const activeConversation = conversations.find((item) => item.id === activeId) ?? null;
 
@@ -59,6 +66,35 @@ export function AssistantPage() {
     const nextHeight = Math.min(maxHeight, Math.max(minHeight, el.scrollHeight));
     el.style.height = `${nextHeight}px`;
     el.style.overflowY = el.scrollHeight > maxHeight + 1 ? "auto" : "hidden";
+  };
+
+  const persistDraft = (value: string, immediate = false) => {
+    cachedDraft = value;
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+    const write = () => {
+      draftSaveTimerRef.current = null;
+      void aiService.saveDraft(value).catch((error) => {
+        console.error("[ai] draft save failed", error);
+      });
+    };
+    if (immediate) {
+      write();
+      return;
+    }
+    draftSaveTimerRef.current = setTimeout(write, DRAFT_SAVE_DELAY_MS);
+  };
+
+  const updateDraft = (value: string) => {
+    setDraft(value);
+    persistDraft(value);
+  };
+
+  const clearDraft = () => {
+    setDraft("");
+    persistDraft("", true);
   };
 
   const refreshStatus = async () => {
@@ -149,10 +185,11 @@ export function AssistantPage() {
       setGenerationFailed(true);
       setError(result.error || "The AI request failed. Try again.");
       void refreshStatus();
-      return;
+      return false;
     }
     setGenerationFailed(false);
     setError("");
+    return true;
   };
 
   const openConversation = async (id: string) => {
@@ -176,12 +213,40 @@ export function AssistantPage() {
 
   useEffect(() => {
     void (async () => {
+      if (!draftHydratedRef.current) {
+        try {
+          const saved = await aiService.getDraft();
+          cachedDraft = saved;
+          setDraft(saved);
+          draftHydratedRef.current = true;
+          requestAnimationFrame(resizeDraftInput);
+        } catch (error) {
+          console.error("[ai] draft load failed", error);
+          draftHydratedRef.current = true;
+        }
+      } else if (cachedDraft !== null) {
+        setDraft(cachedDraft);
+        requestAnimationFrame(resizeDraftInput);
+      }
+
       await refreshStatus();
       const list = await refreshConversations();
       if (list[0]) {
         await openConversation(list[0].id);
       }
     })();
+
+    return () => {
+      if (draftSaveTimerRef.current) {
+        clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = null;
+        if (cachedDraft !== null) {
+          void aiService.saveDraft(cachedDraft).catch(() => {
+            /* ignore flush errors on unmount */
+          });
+        }
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -264,7 +329,6 @@ export function AssistantPage() {
       const conversation = await aiService.createConversation();
       setActiveId(conversation.id);
       setMessages([]);
-      setDraft("");
       await refreshConversations();
       inputRef.current?.focus();
     } catch (createError) {
@@ -305,8 +369,9 @@ export function AssistantPage() {
 
     try {
       const result = await action();
-      applySendResult(result);
+      const ok = applySendResult(result);
       await refreshConversations();
+      return ok;
     } catch (runError) {
       setStreamText(null);
       setGenerationFailed(true);
@@ -321,6 +386,7 @@ export function AssistantPage() {
         }
       }
       await refreshConversations();
+      return false;
     } finally {
       stopListening();
       streamRequestIdRef.current = null;
@@ -340,7 +406,12 @@ export function AssistantPage() {
 
     setDraft("");
     setMessages((current) => [...current, { role: "user", content }]);
-    await runGeneration(() => aiService.sendMessage(activeId, content));
+    const ok = await runGeneration(() => aiService.sendMessage(activeId, content));
+    if (ok) {
+      clearDraft();
+    } else {
+      updateDraft(content);
+    }
   };
 
   const retry = async () => {
@@ -529,7 +600,7 @@ export function AssistantPage() {
               ref={inputRef}
               value={draft}
               onChange={(event) => {
-                setDraft(event.target.value);
+                updateDraft(event.target.value);
                 requestAnimationFrame(resizeDraftInput);
               }}
               onKeyDown={(event) => {

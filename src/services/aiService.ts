@@ -20,6 +20,8 @@ export const aiService = {
   createConversation: () => unwrap(api().createConversation()),
   getConversation: (id: string) => unwrap(api().getConversation(id)),
   deleteConversation: (id: string) => unwrap(api().deleteConversation(id)),
+  getDraft: () => unwrap(api().getDraft()),
+  saveDraft: (content: string) => unwrap(api().saveDraft(content)),
   sendMessage: (conversationId: string | null, content: string) =>
     unwrap(api().sendMessage(conversationId, content)),
   retry: (conversationId: string) => unwrap(api().retry(conversationId)),

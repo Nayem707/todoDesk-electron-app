@@ -226,3 +226,24 @@ export function getConversationBundle(conversationId) {
     messages: getMessagesByConversation(conversationId),
   };
 }
+
+const CHAT_DRAFT_KEY = "aiChatDraft";
+const MAX_DRAFT_LENGTH = 12_000;
+
+export function getChatDraft() {
+  const row = queryOne("SELECT value FROM settings WHERE key = ?", [CHAT_DRAFT_KEY]);
+  return typeof row?.value === "string" ? row.value : "";
+}
+
+export function saveChatDraft(content) {
+  const next =
+    typeof content === "string" ? content.slice(0, MAX_DRAFT_LENGTH) : "";
+  withTransaction((db) => {
+    db.run(
+      `INSERT INTO settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [CHAT_DRAFT_KEY, next]
+    );
+  });
+  return next;
+}

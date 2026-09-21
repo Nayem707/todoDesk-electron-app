@@ -45,6 +45,8 @@ contextBridge.exposeInMainWorld("aiAPI", {
   createConversation: () => invoke("ai:createConversation"),
   getConversation: (id) => invoke("ai:getConversation", id),
   deleteConversation: (id) => invoke("ai:deleteConversation", id),
+  getDraft: () => invoke("ai:getDraft"),
+  saveDraft: (content) => invoke("ai:saveDraft", content),
   sendMessage: (conversationId, content) =>
     invoke("ai:sendMessage", conversationId, content),
   retry: (conversationId) => invoke("ai:retry", conversationId),
