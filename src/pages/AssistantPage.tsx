@@ -39,6 +39,28 @@ export function AssistantPage() {
 
   const activeConversation = conversations.find((item) => item.id === activeId) ?? null;
 
+  const resizeDraftInput = () => {
+    const el = inputRef.current;
+    if (!el) {
+      return;
+    }
+    const styles = window.getComputedStyle(el);
+    const lineHeight = Number.parseFloat(styles.lineHeight) || 20;
+    const paddingY =
+      (Number.parseFloat(styles.paddingTop) || 0) +
+      (Number.parseFloat(styles.paddingBottom) || 0);
+    const borderY =
+      (Number.parseFloat(styles.borderTopWidth) || 0) +
+      (Number.parseFloat(styles.borderBottomWidth) || 0);
+    const minHeight = lineHeight * 2 + paddingY + borderY;
+    const maxHeight = lineHeight * 8 + paddingY + borderY;
+
+    el.style.height = "0px";
+    const nextHeight = Math.min(maxHeight, Math.max(minHeight, el.scrollHeight));
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight + 1 ? "auto" : "hidden";
+  };
+
   const refreshStatus = async () => {
     setChecking(true);
     try {
@@ -169,6 +191,10 @@ export function AssistantPage() {
     }
     list.scrollTop = list.scrollHeight;
   }, [messages, sending, streamText]);
+
+  useEffect(() => {
+    resizeDraftInput();
+  }, [draft, sending]);
 
   const startNewChat = async () => {
     if (sending) {
@@ -438,7 +464,10 @@ export function AssistantPage() {
             <textarea
               ref={inputRef}
               value={draft}
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                requestAnimationFrame(resizeDraftInput);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
@@ -449,7 +478,7 @@ export function AssistantPage() {
               disabled={sending}
               placeholder="Message llama3.2"
               aria-label="Message"
-              className="todo-scroll max-h-40 min-h-[52px] w-full resize-none rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2.5 text-sm outline-none ring-[rgb(var(--accent))] placeholder:text-[rgb(var(--muted))] focus:ring-2 disabled:opacity-60"
+              className="todo-scroll w-full resize-none overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2.5 text-sm leading-5 outline-none ring-[rgb(var(--accent))] placeholder:text-[rgb(var(--muted))] focus:ring-2 disabled:opacity-60"
             />
           </div>
         </form>
