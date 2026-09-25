@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, ExternalLink, History, ScanSearch, Square, Trash2 } from "lucide-react";
 import { AnalysisProgress } from "../components/AnalysisProgress";
+import { AutofillPanel } from "../components/AutofillPanel";
 import { EmptyState } from "../components/EmptyState";
-import { FormFieldTable } from "../components/FormFieldTable";
+import { FormFieldTable, type FieldFillStatus } from "../components/FormFieldTable";
 import { StatCard } from "../components/StatCard";
 import { Tabs } from "../components/Tabs";
+import { useAutofill } from "../hooks/useAutofill";
 import { useFormAnalysis } from "../hooks/useFormAnalysis";
 import { isUncertain } from "../services/formAssistantService";
 import type {
@@ -200,6 +202,25 @@ function AnalysisResult({
     return { mapped, review };
   }, [analysis.fields]);
   const pageUrl = analysis.finalUrl ?? analysis.url;
+  const autofill = useAutofill(analysis);
+  const tableRef = useRef<HTMLDivElement | null>(null);
+
+  const statuses = useMemo<Record<string, FieldFillStatus>>(() => {
+    if (autofill.summary) {
+      return Object.fromEntries(
+        autofill.summary.results.map((result) => [
+          result.key,
+          { status: result.status, reason: result.reason, value: result.value },
+        ])
+      );
+    }
+    return Object.fromEntries(
+      Object.values(autofill.plan).map((entry) => [
+        entry.key,
+        { status: entry.status, reason: entry.reason, value: entry.displayValue },
+      ])
+    );
+  }, [autofill.plan, autofill.summary]);
 
   return (
     <section className="space-y-4">
@@ -242,7 +263,23 @@ function AnalysisResult({
         </ul>
       )}
 
-      <FormFieldTable fields={analysis.fields} onMappingChange={onMappingChange} />
+      <AutofillPanel
+        plan={autofill.plan}
+        filling={autofill.filling}
+        phase={autofill.phase}
+        liveResults={autofill.liveResults}
+        summary={autofill.summary}
+        error={autofill.error}
+        browserOpen={autofill.browserOpen}
+        onAutofill={() => void autofill.autofill()}
+        onCancel={() => void autofill.cancel()}
+        onCloseBrowser={() => void autofill.closeBrowser()}
+        onViewResults={() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+      />
+
+      <div ref={tableRef} className="scroll-mt-4">
+        <FormFieldTable fields={analysis.fields} statuses={statuses} onMappingChange={onMappingChange} />
+      </div>
     </section>
   );
 }

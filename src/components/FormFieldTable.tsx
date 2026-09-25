@@ -8,18 +8,35 @@ import {
 import {
   SEMANTIC_FIELD_LABELS,
   type DetectedFormField,
+  type FillPlanStatus,
+  type FillResultStatus,
   type SemanticField,
 } from "../types/formAssistant";
 import { cn } from "../utils/cn";
 
 const FIELD_OPTIONS = Object.entries(SEMANTIC_FIELD_LABELS) as [SemanticField, string][];
 
+export interface FieldFillStatus {
+  status: FillPlanStatus | FillResultStatus;
+  reason: string | null;
+  value: string | null;
+}
+
 interface FormFieldTableProps {
   fields: DetectedFormField[];
+  statuses: Record<string, FieldFillStatus>;
   onMappingChange: (fieldKey: string, mappedField: SemanticField | null) => void;
 }
 
-export function FormFieldTable({ fields, onMappingChange }: FormFieldTableProps) {
+const STATUS_STYLES: Record<FieldFillStatus["status"], { label: string; className: string }> = {
+  ready: { label: "Ready", className: "bg-[rgb(var(--accent))]/10 text-[rgb(var(--accent))]" },
+  filled: { label: "Filled", className: "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200" },
+  skipped: { label: "Skipped", className: "bg-black/5 text-[rgb(var(--muted))] dark:bg-white/10" },
+  review: { label: "Review", className: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200" },
+  failed: { label: "Failed", className: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200" },
+};
+
+export function FormFieldTable({ fields, statuses, onMappingChange }: FormFieldTableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-card dark:shadow-card-dark">
       <div className="overflow-x-auto">
@@ -30,11 +47,17 @@ export function FormFieldTable({ fields, onMappingChange }: FormFieldTableProps)
               <th className="px-4 py-2.5 font-medium">Type</th>
               <th className="px-4 py-2.5 font-medium">Mapped As</th>
               <th className="px-4 py-2.5 text-right font-medium">Confidence</th>
+              <th className="px-4 py-2.5 font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
             {fields.map((field) => (
-              <FieldRow key={field.key} field={field} onMappingChange={onMappingChange} />
+              <FieldRow
+                key={field.key}
+                field={field}
+                fillStatus={statuses[field.key]}
+                onMappingChange={onMappingChange}
+              />
             ))}
           </tbody>
         </table>
@@ -45,9 +68,11 @@ export function FormFieldTable({ fields, onMappingChange }: FormFieldTableProps)
 
 function FieldRow({
   field,
+  fillStatus,
   onMappingChange,
 }: {
   field: DetectedFormField;
+  fillStatus: FieldFillStatus | undefined;
   onMappingChange: FormFieldTableProps["onMappingChange"];
 }) {
   const name = fieldDisplayName(field);
@@ -114,7 +139,23 @@ function FieldRow({
       <td className="px-4 py-2.5 text-right align-top">
         <ConfidenceBadge field={field} uncertain={uncertain} />
       </td>
+      <td className="max-w-[200px] px-4 py-2.5 align-top">
+        {fillStatus ? <FillStatusCell fillStatus={fillStatus} /> : <span className="text-xs text-[rgb(var(--muted))]">—</span>}
+      </td>
     </tr>
+  );
+}
+
+function FillStatusCell({ fillStatus }: { fillStatus: FieldFillStatus }) {
+  const style = STATUS_STYLES[fillStatus.status];
+  const detail = fillStatus.status === "ready" || fillStatus.status === "filled" ? fillStatus.value : fillStatus.reason;
+  return (
+    <div title={fillStatus.reason ?? undefined}>
+      <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-semibold", style.className)}>
+        {style.label}
+      </span>
+      {detail && <p className="mt-0.5 truncate text-xs text-[rgb(var(--muted))]">{detail}</p>}
+    </div>
   );
 }
 

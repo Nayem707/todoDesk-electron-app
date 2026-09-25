@@ -73,6 +73,15 @@ contextBridge.exposeInMainWorld("formAssistantAPI", {
     ipcRenderer.on("formAssistant:progress", listener);
     return () => ipcRenderer.removeListener("formAssistant:progress", listener);
   },
+  previewAutofill: (id) => invoke("formAssistant:previewAutofill", id),
+  autofill: (id, requestId) => invoke("formAssistant:autofill", id, requestId),
+  cancelAutofill: (requestId) => invoke("formAssistant:cancelAutofill", requestId),
+  closeBrowser: () => invoke("formAssistant:closeBrowser"),
+  onFillProgress: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("formAssistant:fillProgress", listener);
+    return () => ipcRenderer.removeListener("formAssistant:fillProgress", listener);
+  },
 });
 
 contextBridge.exposeInMainWorld("windowAPI", {

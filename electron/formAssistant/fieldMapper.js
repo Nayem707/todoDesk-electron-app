@@ -387,9 +387,9 @@ function short(value) {
 /** Collects `{ target, score, reason }` evidence from every available signal. */
 function collectEvidence(field) {
   const evidence = [];
-  const add = (target, score, reason) => {
+  const add = (target, score, reason, weak = false) => {
     if (score > 0 && isAllowedForType(target, field)) {
-      evidence.push({ target, score, reason });
+      evidence.push({ target, score, reason, weak });
     }
   };
 
@@ -407,7 +407,7 @@ function collectEvidence(field) {
     for (const target of FIELD_VOCABULARY) {
       const match = matchRule(target, text);
       if (match) {
-        add(target, weight * match, `${signal} "${short(raw)}"`);
+        add(target, weight * match, `${signal} "${short(raw)}"`, match <= WEAK);
       }
     }
   }
@@ -458,6 +458,9 @@ function collectEvidence(field) {
   return evidence;
 }
 
+/** The same weak word repeated in name/id/label isn't independent evidence, so it can't exceed this. */
+const WEAK_ONLY_CAP = 0.7;
+
 /** Noisy-OR: independent agreeing signals raise confidence without exceeding 1. */
 function combine(scores) {
   return 1 - scores.reduce((acc, score) => acc * (1 - Math.min(score, 0.999)), 1);
@@ -474,8 +477,9 @@ export const ruleBasedMapper = {
     const evidence = collectEvidence(field);
     const byTarget = new Map();
     for (const item of evidence) {
-      const entry = byTarget.get(item.target) ?? { scores: [], reasons: [] };
+      const entry = byTarget.get(item.target) ?? { scores: [], reasons: [], strong: false };
       entry.scores.push(item.score);
+      entry.strong = entry.strong || !item.weak;
       if (!entry.reasons.includes(item.reason)) {
         entry.reasons.push(item.reason);
       }
@@ -483,7 +487,14 @@ export const ruleBasedMapper = {
     }
 
     const ranked = [...byTarget.entries()]
-      .map(([target, entry]) => ({ target, confidence: combine(entry.scores), reasons: entry.reasons }))
+      .map(([target, entry]) => {
+        const combined = combine(entry.scores);
+        return {
+          target,
+          confidence: entry.strong ? combined : Math.min(combined, WEAK_ONLY_CAP),
+          reasons: entry.reasons,
+        };
+      })
       .sort((a, b) => b.confidence - a.confidence);
 
     const [best, second] = ranked;

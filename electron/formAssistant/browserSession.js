@@ -22,14 +22,14 @@ const LAUNCH_ARGS = [
   "--disable-features=Translate,MediaRouter,OptimizationHints",
 ];
 
-async function launchBrowser() {
+async function launchBrowser(interactive) {
   let lastError = null;
   for (const channel of BROWSER_CHANNELS) {
     try {
       return await chromium.launch({
         channel,
-        headless: true,
-        args: LAUNCH_ARGS,
+        headless: !interactive,
+        args: interactive ? [...LAUNCH_ARGS, "--window-size=1280,900"] : LAUNCH_ARGS,
         timeout: 20_000,
       });
     } catch (error) {
@@ -44,12 +44,17 @@ async function launchBrowser() {
 }
 
 /**
- * An isolated, locked-down headless browser session for analyzing one page.
+ * An isolated, locked-down browser session for one page.
+ *
+ * Analysis sessions are headless and strip heavy resources/popups/dialogs. Interactive sessions
+ * (Auto Fill) open a visible window the user reviews and submits from, so the page loads normally
+ * and popups/dialogs are left to the user. Network safety rules apply to both.
  *
  * @param {{ assertHostAllowed: (hostname: string) => Promise<void> }} urlPolicy
+ * @param {{ interactive?: boolean }} [options]
  */
-export async function openBrowserSession(urlPolicy) {
-  const browser = await launchBrowser();
+export async function openBrowserSession(urlPolicy, { interactive = false } = {}) {
+  const browser = await launchBrowser(interactive);
   let closed = false;
   let requestCount = 0;
   /** @type {FormAssistantError | null} */
@@ -78,7 +83,7 @@ export async function openBrowserSession(urlPolicy) {
     javaScriptEnabled: true,
     bypassCSP: false,
     permissions: [],
-    viewport: { width: 1280, height: 900 },
+    viewport: interactive ? null : { width: 1280, height: 900 },
     locale: "en-US",
   });
   context.setDefaultTimeout(10_000);
@@ -103,7 +108,11 @@ export async function openBrowserSession(urlPolicy) {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
       return route.abort("blockedbyclient");
     }
-    if (!isDocument && (BLOCKED_RESOURCE_TYPES.has(request.resourceType()) || requestCount > MAX_REQUESTS)) {
+    if (
+      !interactive &&
+      !isDocument &&
+      (BLOCKED_RESOURCE_TYPES.has(request.resourceType()) || requestCount > MAX_REQUESTS)
+    ) {
       return route.abort("blockedbyclient");
     }
     if (!(await hostAllowed(url.hostname))) {
@@ -118,15 +127,22 @@ export async function openBrowserSession(urlPolicy) {
     return route.continue();
   });
 
-  // Popups and new tabs are never needed for field detection.
-  context.on("page", (extra) => {
-    if (page && extra !== page) {
-      void extra.close().catch(() => {});
-    }
-  });
+  if (!interactive) {
+    // Popups and new tabs are never needed for field detection.
+    context.on("page", (extra) => {
+      if (page && extra !== page) {
+        void extra.close().catch(() => {});
+      }
+    });
+  }
 
   page = await context.newPage();
-  page.on("dialog", (dialog) => void dialog.dismiss().catch(() => {}));
+  if (interactive) {
+    // A listener that doesn't respond keeps dialogs open for the user instead of auto-dismissing.
+    page.on("dialog", () => {});
+  } else {
+    page.on("dialog", (dialog) => void dialog.dismiss().catch(() => {}));
+  }
 
   /**
    * Navigates and waits (bounded) for the page and any client-rendered form to settle.
@@ -199,6 +215,13 @@ export async function openBrowserSession(urlPolicy) {
     close,
     get closed() {
       return closed;
+    },
+    /** Fires once when the browser goes away, including when the user closes its window. */
+    onClosed(callback) {
+      browser.once("disconnected", () => {
+        closed = true;
+        callback();
+      });
     },
   };
 }

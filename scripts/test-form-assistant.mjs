@@ -2,6 +2,9 @@ import http from "http";
 import { analyzeWebsite } from "../electron/formAssistant/formAnalyzer.js";
 import { mapFields, normalizeText, ruleBasedMapper } from "../electron/formAssistant/fieldMapper.js";
 import { parseTargetUrl, isPrivateAddress, strictUrlPolicy } from "../electron/formAssistant/urlSafety.js";
+import { formatDateForField, matchOption, planField } from "../electron/formAssistant/autofillPlanner.js";
+import { runAutofill } from "../electron/formAssistant/autofillService.js";
+import { DUMMY_PROFILE } from "../electron/formAssistant/dummyProfile.js";
 
 let failures = 0;
 function check(name, condition, detail = "") {
@@ -122,6 +125,50 @@ const custom = mapFields([{ type: "text", tag: "input", name: "xyz" }], [
 ]);
 check("pluggable mapper chain", custom[0].mappedField === "company" && custom[0].mappingSource === "ai");
 
+console.log("\nAutofill planning");
+const baseField = {
+  key: "k", tag: "input", type: "text", name: "", id: "", label: "", ariaLabel: "", placeholder: "",
+  legend: "", nearbyText: "", options: [], visible: true, disabled: false, readOnly: false,
+  maxLength: null, mappingSource: "rules", confidence: 0.95, mappedField: null,
+};
+const plan = (overrides) => planField({ ...baseField, ...overrides });
+check("text → profile value", plan({ mappedField: "firstName" }).value === DUMMY_PROFILE.firstName);
+check("date input → ISO", plan({ type: "date", mappedField: "dateOfBirth" }).value === "2000-01-01");
+check("text date honours dd/mm/yyyy", formatDateForField({ ...baseField, placeholder: "DD/MM/YYYY" }, "2000-01-01") === "01/01/2000");
+check("text date honours mm-dd-yy", formatDateForField({ ...baseField, label: "Birthday (mm-dd-yy)" }, "2000-01-01") === "01-01-00");
+const bdOptions = [
+  { value: "", label: "Select…" },
+  { value: "IN", label: "India" },
+  { value: "BD", label: "Bangladesh" },
+];
+check("select by label", plan({ tag: "select", type: "select", mappedField: "country", options: bdOptions }).value === "BD");
+check("select by value alias", matchOption([{ value: "bd", label: "BD" }], ["Bangladesh", "BD"])?.value === "bd");
+check("select normalized text", matchOption([{ value: "x", label: "BANGLA-DESH" }], ["Bangladesh"])?.value === "x");
+check("select contains word", matchOption([{ value: "880", label: "Bangladesh (+880)" }], ["Bangladesh"])?.value === "880");
+const noMatch = plan({ tag: "select", type: "select", mappedField: "country", options: [{ value: "us", label: "United States" }] });
+check("no matching option → skipped, no random pick", noMatch.status === "skipped" && noMatch.value === null, JSON.stringify(noMatch));
+check("placeholder option never chosen", matchOption([{ value: "", label: "Bangladesh" }, { value: "1", label: "Other" }], ["Bangladesh"])?.value !== "");
+check(
+  "radio gender → Male",
+  plan({ type: "radio", mappedField: "gender", options: [{ value: "f", label: "Female" }, { value: "m", label: "Male" }] }).value === "m"
+);
+check("file → skipped", plan({ type: "file", mappedField: "resume" }).reason === "File upload requires a user-provided file");
+check("hidden → skipped", plan({ mappedField: "email", visible: false }).status === "skipped");
+check("disabled → skipped", plan({ mappedField: "email", disabled: true }).status === "skipped");
+check("unmapped → skipped", plan({ mappedField: null }).status === "skipped");
+check("low confidence → review", plan({ mappedField: "jobTitle", confidence: 0.57 }).status === "review");
+check("manual mapping fills even at low confidence", plan({ mappedField: "jobTitle", confidence: 0.2, mappingSource: "user" }).status === "ready");
+check("terms checkbox → check", plan({ type: "checkbox", label: "I agree to the Terms and Conditions" }).action === "check");
+check("newsletter checkbox → uncheck", plan({ type: "checkbox", label: "Send me the newsletter" }).action === "uncheck");
+check("marketing consent → uncheck", plan({ type: "checkbox", label: "I agree to receive marketing emails" }).action === "uncheck");
+check("unknown checkbox untouched", plan({ type: "checkbox", label: "Remember me" }).status === "skipped");
+check("number field rejects non-numeric", plan({ type: "number", mappedField: "email" }).status === "skipped");
+check("maxLength respected", plan({ mappedField: "phone", maxLength: 5 }).value === "01700");
+check(
+  "day/month/year selects",
+  plan({ tag: "select", type: "select", mappedField: "dateOfBirth", name: "dob_month", options: [{ value: "1", label: "January" }, { value: "2", label: "February" }] }).value === "1"
+);
+
 console.log("\nBrowser analysis (local fixtures)");
 const PAGES = {
   "/full": `<!doctype html><title>Job Application</title>
@@ -163,10 +210,50 @@ const PAGES = {
   "/empty": `<!doctype html><title>About</title><p>No forms here.</p>`,
   "/captcha": `<!doctype html><title>Just a moment...</title><div class="cf-turnstile" data-sitekey="x"></div>`,
   "/login": `<!doctype html><title>Sign in</title><form><input name="user"><input type="password" name="pass"></form>`,
+  "/site-a": `<!doctype html><title>Site A</title>
+    <form action="/submit" method="post" onsubmit="window.__submitted = (window.__submitted || 0) + 1">
+      <label for="first_name">First name</label><input id="first_name" name="first_name">
+      <label for="last_name">Last name</label><input id="last_name" name="last_name">
+      <label for="email">Email</label><input type="email" id="email" name="email">
+      <label for="phone">Phone</label><input type="tel" id="phone" name="phone">
+      <label for="date_of_birth">Date of birth</label><input type="date" id="date_of_birth" name="date_of_birth">
+      <label for="country">Country</label><select id="country" name="country"><option value="">Select</option><option value="IN">India</option><option value="BD">Bangladesh</option></select>
+      <label for="address">Address</label><textarea id="address" name="address"></textarea>
+      <fieldset><legend>Gender</legend><label><input type="radio" name="gender" value="female"> Female</label><label><input type="radio" name="gender" value="male"> Male</label></fieldset>
+      <label for="resume">Resume</label><input type="file" id="resume" name="resume">
+      <label><input type="checkbox" name="terms"> I accept the terms and conditions</label>
+      <label><input type="checkbox" name="news" checked> Subscribe to our newsletter</label>
+      <label><input type="checkbox" name="remember"> Remember me</label>
+      <input name="website_hp" style="display:none" aria-label="Website">
+      <label for="q">Search</label><input id="q" name="q">
+      <button type="submit">Apply</button>
+    </form>`,
+  "/site-b": `<!doctype html><title>Site B</title>
+    <form action="/submit" onsubmit="window.__submitted = (window.__submitted || 0) + 1">
+      <input type="email" name="email" aria-label="Email address">
+      <input type="password" name="password" aria-label="Password">
+      <label for="c">Country</label><select id="c" name="country"><option value="us">United States</option><option value="ca">Canada</option></select>
+      <button>Register</button>
+    </form>`,
+  "/site-c": `<!doctype html><title>Site C</title>
+    <form action="/submit">
+      <label for="dob">Birthday</label><input id="dob" name="dob" placeholder="DD/MM/YYYY">
+      <label for="zip">Postal code</label><input type="number" id="zip" name="zip">
+      <label for="company">Company</label><input id="company" name="company">
+      <label for="job_title">Job title</label><input id="job_title" name="job_title">
+      <label for="site">Website</label><input type="url" id="site" name="site">
+      <label for="nat">Nationality</label><select id="nat" name="nationality"><option value="">--</option><option value="bgd">Bangladeshi</option><option value="ind">Indian</option></select>
+      <label for="role">Your role</label><input id="role" name="role_hint">
+      <label for="ro">Username</label><input id="ro" name="username" readonly value="fixed">
+    </form>`,
 };
 
+let submitRequests = 0;
 const server = http.createServer((req, res) => {
   const path = new URL(req.url, "http://x").pathname;
+  if (path === "/submit") {
+    submitRequests += 1;
+  }
   if (path === "/slow") {
     return;
   }
@@ -270,6 +357,70 @@ try {
   const pending = analyzeWebsite(`${base}/slow`, { urlPolicy: testPolicy, signal: controller.signal, timeouts: fast });
   setTimeout(() => controller.abort(), 800);
   await expectError("cancel", pending, "CANCELLED");
+
+  console.log("\nAuto Fill (local fixtures)");
+  const autofillSite = async (path) => {
+    const analysis = await analyzeWebsite(`${base}${path}`, { urlPolicy: testPolicy, timeouts: fast });
+    const streamed = [];
+    const { summary, session } = await runAutofill(analysis, {
+      urlPolicy: testPolicy,
+      interactive: false,
+      timeouts: fast,
+      onResult: (result) => streamed.push(result),
+    });
+    await session.page.waitForTimeout(300);
+    const values = await session.page.evaluate(() => {
+      const out = {};
+      for (const el of document.querySelectorAll("input, select, textarea")) {
+        const key = el.type === "radio" ? `${el.name}:${el.value}` : el.name;
+        out[key] = el.type === "checkbox" || el.type === "radio" ? el.checked : el.value;
+      }
+      return { out, submitted: window.__submitted || 0, url: location.pathname };
+    });
+    await session.close();
+    return { analysis, summary, streamed, values };
+  };
+  const statusOf = (summary, field) => summary.results.find((result) => result.field === field);
+
+  const a = await autofillSite("/site-a");
+  const av = a.values.out;
+  check("A: result per detected field", a.summary.totalDetected === a.analysis.fields.length && a.summary.results.length === a.analysis.fields.length);
+  check("A: results streamed live", a.streamed.length === a.summary.results.length);
+  check("A: text fields", av.first_name === "Nayem" && av.last_name === "Islam");
+  check("A: email + tel", av.email === "nayem@example.com" && av.phone === "01700000000");
+  check("A: date input", av.date_of_birth === "2000-01-01", av.date_of_birth);
+  check("A: select by label", av.country === "BD", av.country);
+  check("A: textarea", av.address === "Dhaka, Bangladesh");
+  check("A: radio", av["gender:male"] === true && av["gender:female"] === false);
+  check("A: terms checked", av.terms === true);
+  check("A: newsletter unchecked", av.news === false);
+  check("A: unknown checkbox untouched", av.remember === false && statusOf(a.summary, "remember")?.status === "skipped");
+  check("A: file skipped with reason", statusOf(a.summary, "resume")?.reason === "File upload requires a user-provided file");
+  check("A: hidden honeypot untouched", av.website_hp === "" && statusOf(a.summary, "website_hp")?.status === "skipped");
+  check("A: unmapped search untouched", av.q === "" && statusOf(a.summary, "q")?.status === "skipped");
+  check("A: counts", a.summary.filled === 10 && a.summary.skipped === 4 && a.summary.failed === 0, JSON.stringify({ ...a.summary, results: undefined }));
+  check("A: not submitted", a.values.submitted === 0 && a.values.url === "/site-a");
+
+  const b = await autofillSite("/site-b");
+  const bv = b.values.out;
+  check("B: only 3 fields detected", b.summary.totalDetected === 3, String(b.summary.totalDetected));
+  check("B: email + password filled", bv.email === "nayem@example.com" && bv.password === "TestPassword123!");
+  check("B: country without Bangladesh skipped, not random", bv.country === "us" && statusOf(b.summary, "country")?.status === "skipped");
+  check("B: not submitted", b.values.submitted === 0);
+
+  const c = await autofillSite("/site-c");
+  const cv = c.values.out;
+  check("C: text date formatted from placeholder", cv.dob === "01/01/2000", cv.dob);
+  check("C: number postal code", cv.zip === "1200");
+  check("C: company / job / url", cv.company === "Example Company" && cv.job_title === "Software Developer" && cv.site === "https://example.com");
+  check("C: nationality select", cv.nationality === "bgd");
+  check(
+    "C: low-confidence field needs review",
+    statusOf(c.summary, "role_hint")?.status === "review" && cv.role_hint === "",
+    JSON.stringify({ result: statusOf(c.summary, "role_hint"), field: c.analysis.fields.find((f) => f.name === "role_hint") })
+  );
+  check("C: read-only untouched", cv.username === "fixed");
+  check("no form was ever submitted", submitRequests === 0, String(submitRequests));
 
   if (process.argv.includes("--online")) {
     console.log("\nOnline checks");

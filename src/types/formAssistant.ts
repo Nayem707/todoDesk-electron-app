@@ -148,6 +148,50 @@ export interface FormAnalyzeResult {
   error: FormAnalysisError | null;
 }
 
+export type FillPlanStatus = "ready" | "skipped" | "review";
+
+export interface FillPlanEntry {
+  key: string;
+  status: FillPlanStatus;
+  reason: string | null;
+  displayValue: string | null;
+  action: "fill" | "select" | "check" | "uncheck" | "radio" | null;
+}
+
+export type FillResultStatus = "filled" | "skipped" | "failed" | "review";
+
+export interface FillFieldResult {
+  key: string;
+  field: string;
+  mappedField: SemanticField | null;
+  status: FillResultStatus;
+  value: string | null;
+  reason: string | null;
+}
+
+export interface AutofillSummary {
+  success: boolean;
+  totalDetected: number;
+  filled: number;
+  skipped: number;
+  failed: number;
+  review: number;
+  results: FillFieldResult[];
+}
+
+export interface AutofillResponse {
+  result: AutofillSummary | null;
+  error: FormAnalysisError | null;
+}
+
+export type AutofillPhase = "opening" | "loading" | "filling";
+
+export interface AutofillProgressEvent {
+  requestId: string;
+  phase?: AutofillPhase;
+  result?: FillFieldResult;
+}
+
 export type FormAnalysisStep = "opening" | "loading" | "detecting" | "mapping";
 
 export interface FormAnalysisProgressEvent {

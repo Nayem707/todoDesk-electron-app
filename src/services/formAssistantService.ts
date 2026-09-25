@@ -1,4 +1,5 @@
 import type {
+  AutofillProgressEvent,
   DetectedFormField,
   FormAnalysisProgressEvent,
   SemanticField,
@@ -22,6 +23,12 @@ export const formAssistantService = {
     unwrap(api().updateMapping(id, fieldKey, mappedField)),
   onProgress: (callback: (event: FormAnalysisProgressEvent) => void) =>
     api().onProgress(callback),
+  previewAutofill: (id: string) => unwrap(api().previewAutofill(id)),
+  autofill: (id: string, requestId: string) => unwrap(api().autofill(id, requestId)),
+  cancelAutofill: (requestId: string) => unwrap(api().cancelAutofill(requestId)),
+  closeBrowser: () => unwrap(api().closeBrowser()),
+  onFillProgress: (callback: (event: AutofillProgressEvent) => void) =>
+    api().onFillProgress(callback),
 };
 
 export const UNCERTAIN_CONFIDENCE = 0.75;

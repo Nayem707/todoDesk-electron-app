@@ -179,6 +179,24 @@ function registerFormAssistantHandlers(getMainWindow) {
   handleTrusted("formAssistant:cancel", (_event, requestId) =>
     formAssistantService.cancelAnalysis(typeof requestId === "string" ? requestId : null)
   );
+  handleTrusted("formAssistant:previewAutofill", (_event, id) => formAssistantService.previewAutofill(id));
+  handleTrusted("formAssistant:cancelAutofill", (_event, requestId) =>
+    formAssistantService.cancelAutofill(typeof requestId === "string" ? requestId : null)
+  );
+  handleTrusted("formAssistant:closeBrowser", () => formAssistantService.closeAutofillBrowser());
+  handleTrusted("formAssistant:autofill", (event, id, requestId) => {
+    if (typeof requestId !== "string" || !requestId || requestId.length > 100) {
+      throw new Error("Invalid request.");
+    }
+    return formAssistantService.autofill(id, {
+      requestId,
+      emit: (payload) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send("formAssistant:fillProgress", payload);
+        }
+      },
+    });
+  });
   handleTrusted("formAssistant:analyze", (event, url, requestId) => {
     if (typeof requestId !== "string" || !requestId || requestId.length > 100) {
       throw new Error("Invalid request.");

@@ -9,6 +9,9 @@ import type {
 } from "./ai";
 import type { ClipboardItem } from "./clipboard";
 import type {
+  AutofillProgressEvent,
+  AutofillResponse,
+  FillPlanEntry,
   FormAnalysis,
   FormAnalysisProgressEvent,
   FormAnalysisSummary,
@@ -86,6 +89,11 @@ export interface FormAssistantAPI {
     mappedField: SemanticField | null
   ) => Promise<IpcResult<FormAnalysis>>;
   onProgress: (callback: (event: FormAnalysisProgressEvent) => void) => () => void;
+  previewAutofill: (id: string) => Promise<IpcResult<FillPlanEntry[]>>;
+  autofill: (id: string, requestId: string) => Promise<IpcResult<AutofillResponse>>;
+  cancelAutofill: (requestId: string) => Promise<IpcResult<{ cancelled: boolean }>>;
+  closeBrowser: () => Promise<IpcResult<{ closed: boolean }>>;
+  onFillProgress: (callback: (event: AutofillProgressEvent) => void) => () => void;
 }
 
 export interface WindowAPI {
