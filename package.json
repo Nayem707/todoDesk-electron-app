@@ -14,6 +14,7 @@
     "test:db": "node scripts/smoke-db.mjs",
     "test:forms": "node scripts/test-form-assistant.mjs",
     "test:audit": "node scripts/test-web-audit.mjs",
+    "test:traceroute": "node scripts/test-traceroute.mjs",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",

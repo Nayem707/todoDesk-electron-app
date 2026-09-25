@@ -97,6 +97,16 @@ contextBridge.exposeInMainWorld("webAuditAPI", {
   },
 });
 
+contextBridge.exposeInMainWorld("tracerouteAPI", {
+  start: (target, requestId) => invoke("traceroute:start", target, requestId),
+  cancel: (requestId) => invoke("traceroute:cancel", requestId),
+  onProgress: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("traceroute:progress", listener);
+    return () => ipcRenderer.removeListener("traceroute:progress", listener);
+  },
+});
+
 contextBridge.exposeInMainWorld("windowAPI", {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),

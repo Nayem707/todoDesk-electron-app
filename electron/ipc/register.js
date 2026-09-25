@@ -6,6 +6,7 @@ import * as markdownRepository from "../database/markdownRepository.js";
 import * as aiService from "../ai/aiService.js";
 import * as formAssistantService from "../formAssistant/formAssistantService.js";
 import * as webAuditService from "../webAudit/webAuditService.js";
+import * as tracerouteService from "../traceroute/tracerouteService.js";
 import { writeClipboardInternal } from "../clipboardWatcher.js";
 
 function handle(channel, handler) {
@@ -153,6 +154,7 @@ export function registerIpcHandlers(getMainWindow) {
   const handleTrusted = createTrustedHandler(getMainWindow);
   registerFormAssistantHandlers(handleTrusted);
   registerWebAuditHandlers(handleTrusted);
+  registerTracerouteHandlers(handleTrusted);
 }
 
 /** Handlers that drive a real browser only accept requests from the app's own window. */
@@ -198,6 +200,33 @@ function registerWebAuditHandlers(handleTrusted) {
         }
       },
     });
+  });
+}
+
+function registerTracerouteHandlers(handleTrusted) {
+  handleTrusted("traceroute:cancel", (_event, requestId) =>
+    tracerouteService.cancelTrace(typeof requestId === "string" ? requestId : null)
+  );
+  handleTrusted("traceroute:start", async (event, target, requestId) => {
+    if (!isValidRequestId(requestId)) {
+      throw new Error("Invalid request.");
+    }
+    const cancelOnClose = () => tracerouteService.cancelTrace(requestId);
+    event.sender.once("destroyed", cancelOnClose);
+    try {
+      return await tracerouteService.startTrace(target, {
+        requestId,
+        emit: (payload) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("traceroute:progress", payload);
+          }
+        },
+      });
+    } finally {
+      if (!event.sender.isDestroyed()) {
+        event.sender.removeListener("destroyed", cancelOnClose);
+      }
+    }
   });
 }
 

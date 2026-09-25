@@ -11,6 +11,8 @@ interface UrlAnalyzeFormProps {
   submitIcon: LucideIcon;
   placeholder: string;
   hint: string;
+  label?: string;
+  cancelLabel?: string;
 }
 
 /** The URL card shared by the Web Analyze tools. */
@@ -25,6 +27,8 @@ export function UrlAnalyzeForm({
   submitIcon: SubmitIcon,
   placeholder,
   hint,
+  label = "Website URL",
+  cancelLabel = "Stop",
 }: UrlAnalyzeFormProps) {
   return (
     <form
@@ -35,7 +39,7 @@ export function UrlAnalyzeForm({
       }}
     >
       <label htmlFor={inputId} className="mb-1.5 block text-sm font-medium">
-        Website URL
+        {label}
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
@@ -57,7 +61,7 @@ export function UrlAnalyzeForm({
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-[rgb(var(--border))] px-4 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/10"
           >
             <Square size={13} />
-            Stop
+            {cancelLabel}
           </button>
         ) : (
           <button

@@ -1,23 +1,34 @@
-import { useState } from "react";
-import { Gauge, ScanSearch } from "lucide-react";
+import { useState, type ComponentType } from "react";
+import { Gauge, Route, ScanSearch, type LucideIcon } from "lucide-react";
 import { cn } from "../utils/cn";
 import { FormAssistantPage } from "./FormAssistantPage";
+import { TraceroutePage } from "./TraceroutePage";
 import { WebAuditPage } from "./WebAuditPage";
 
-type WebAnalyzeTool = "formAssistant" | "webAudit";
+type WebAnalyzeTool = "formAssistant" | "webAudit" | "traceroute";
 
-const TOOLS: { id: WebAnalyzeTool; label: string; icon: typeof Gauge; description: string }[] = [
+/** Adding a Web Analyze tool only needs an entry here. */
+const TOOLS: { id: WebAnalyzeTool; label: string; icon: LucideIcon; description: string; component: ComponentType }[] = [
   {
     id: "formAssistant",
     label: "Form Assistant",
     icon: ScanSearch,
     description: "Detect the form fields on a website and see what each one asks for.",
+    component: FormAssistantPage,
   },
   {
     id: "webAudit",
     label: "Web Audit",
     icon: Gauge,
     description: "Check a page's SEO, accessibility, performance, security, HTML, links and images.",
+    component: WebAuditPage,
+  },
+  {
+    id: "traceroute",
+    label: "Traceroute",
+    icon: Route,
+    description: "See the journey: every network stop between your computer and a website.",
+    component: TraceroutePage,
   },
 ];
 
@@ -26,7 +37,8 @@ let lastTool: WebAnalyzeTool = "formAssistant";
 
 export function WebAnalyzePage() {
   const [tool, setToolState] = useState<WebAnalyzeTool>(lastTool);
-  const active = TOOLS.find((item) => item.id === tool);
+  const active = TOOLS.find((item) => item.id === tool) ?? TOOLS[0];
+  const ActiveTool = active?.component;
 
   const setTool = (next: WebAnalyzeTool) => {
     lastTool = next;
@@ -69,7 +81,7 @@ export function WebAnalyzePage() {
         </div>
       </div>
 
-      {tool === "formAssistant" ? <FormAssistantPage /> : <WebAuditPage />}
+      {ActiveTool && <ActiveTool />}
     </div>
   );
 }

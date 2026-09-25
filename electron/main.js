@@ -7,6 +7,7 @@ import { startClipboardWatcher, stopClipboardWatcher } from "./clipboardWatcher.
 import { loadWindowState, saveWindowState } from "./windowState.js";
 import { shutdown as shutdownFormAssistant } from "./formAssistant/formAssistantService.js";
 import { shutdown as shutdownWebAudit } from "./webAudit/webAuditService.js";
+import { shutdown as shutdownTraceroute } from "./traceroute/tracerouteService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -133,6 +134,7 @@ app.on("before-quit", () => {
   stopClipboardWatcher();
   void shutdownFormAssistant();
   shutdownWebAudit();
+  shutdownTraceroute();
   if (mainWindow) {
     saveWindowState(mainWindow);
   }

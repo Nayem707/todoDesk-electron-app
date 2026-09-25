@@ -20,6 +20,7 @@ import type {
 } from "./formAssistant";
 import type { MarkdownDocument } from "./markdown";
 import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
+import type { TraceProgressEvent, TraceResponse } from "./traceroute";
 import type { WebAudit, WebAuditProgressEvent, WebAuditResult, WebAuditSummary } from "./webAudit";
 
 export interface TodoAPI {
@@ -106,6 +107,12 @@ export interface WebAuditAPI {
   onProgress: (callback: (event: WebAuditProgressEvent) => void) => () => void;
 }
 
+export interface TracerouteAPI {
+  start: (target: string, requestId: string) => Promise<IpcResult<TraceResponse>>;
+  cancel: (requestId: string) => Promise<IpcResult<{ cancelled: boolean }>>;
+  onProgress: (callback: (event: TraceProgressEvent) => void) => () => void;
+}
+
 export interface WindowAPI {
   minimize: () => void;
   maximize: () => void;
@@ -123,6 +130,7 @@ declare global {
     aiAPI: AiAPI;
     formAssistantAPI: FormAssistantAPI;
     webAuditAPI: WebAuditAPI;
+    tracerouteAPI: TracerouteAPI;
     windowAPI: WindowAPI;
   }
 }
