@@ -78,12 +78,12 @@ export async function resolveTraceTarget(target, { lookup = dns.lookup, allowAdd
     } catch {
       throw new WebAnalyzeError(
         "DNS_FAILED",
-        "Unable to trace this destination. The domain could not be resolved. Check the spelling and your internet connection."
+        "We couldn't resolve the destination domain. Check the domain name and your internet connection, then try again."
       );
     }
   }
   if (!addresses?.length) {
-    throw new WebAnalyzeError("DNS_FAILED", "Unable to trace this destination. The domain could not be resolved.");
+    throw new WebAnalyzeError("DNS_FAILED", "We couldn't resolve the destination domain. Check the domain name and try again.");
   }
   if (addresses.some((entry) => !allowAddress(entry.address))) {
     throw new WebAnalyzeError(
@@ -255,6 +255,13 @@ export async function runTraceroute(input, options = {}) {
 
   const reached = hops.some((hop) => hop.status === "destination");
   const last = hops[hops.length - 1];
+  const destinationHop = hops.find((hop) => hop.status === "destination");
+  let maxLatency = null;
+  for (const hop of hops) {
+    if (hop.latency && (!maxLatency || hop.latency.max > maxLatency.ms)) {
+      maxLatency = { ms: hop.latency.max, hop: hop.number };
+    }
+  }
   const outcome = reached
     ? "reached"
     : run.stopReason ??
@@ -269,6 +276,12 @@ export async function runTraceroute(input, options = {}) {
     maxHops: limits.maxHops,
     hops,
     totalHops: hops.length,
+    successfulHops: hops.filter((hop) => hop.ip).length,
+    timeoutHops: hops.filter((hop) => hop.status === "timeout").length,
+    /** Average round trip to the destination itself; the only end-to-end latency a trace measures. */
+    destinationLatencyMs: destinationHop?.latency?.avg ?? null,
+    /** Slowest single reply in the trace and the hop it came from. */
+    maxLatency,
     reached,
     outcome,
     durationMs: run.durationMs,

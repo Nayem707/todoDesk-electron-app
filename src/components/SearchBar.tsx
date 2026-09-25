@@ -6,6 +6,7 @@ interface SearchBarProps {
   onChange: (value: string) => void;
   inputRef?: RefObject<HTMLInputElement | null>;
   placeholder?: string;
+  ariaLabel?: string;
 }
 
 export function SearchBar({
@@ -13,6 +14,7 @@ export function SearchBar({
   onChange,
   inputRef,
   placeholder = "Search title, notes, or tags",
+  ariaLabel,
 }: SearchBarProps) {
   return (
     <label className="relative block min-w-[220px] flex-1">
@@ -25,6 +27,7 @@ export function SearchBar({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        aria-label={ariaLabel}
         className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface))] py-2 pl-9 pr-3 text-sm outline-none ring-[rgb(var(--accent))] placeholder:text-[rgb(var(--muted))] focus:ring-2"
       />
     </label>

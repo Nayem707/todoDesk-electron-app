@@ -1,8 +1,13 @@
 import net from "net";
 import { isPrivateAddress } from "../webAnalyze/urlSafety.js";
 
-/** Average round-trip time (ms) at or above which a responding hop is shown as slow. */
-export const SLOW_HOP_MS = 150;
+/**
+ * Average round-trip time (ms) at or above which a hop is flagged as high latency. 150 ms is
+ * the commonly used ceiling for comfortable interactive traffic (ITU-T G.114 uses it for
+ * one-way voice delay). It is informational only and never changes a hop's status, because
+ * routers often answer trace requests at low priority.
+ */
+export const HIGH_LATENCY_MS = 150;
 
 const HOP_LINE = /^\s*(\d{1,3})\s+(.*\S)\s*$/;
 /**
@@ -136,10 +141,8 @@ export function buildHop(parsed, targetIp) {
     status = "destination";
   } else if (parsed.unreachable) {
     status = "unreachable";
-  } else if (!ip || !latency) {
-    status = ip ? "ok" : "timeout";
   } else {
-    status = latency.avg >= SLOW_HOP_MS ? "slow" : "ok";
+    status = ip ? "ok" : "timeout";
   }
 
   return {
@@ -151,6 +154,7 @@ export function buildHop(parsed, targetIp) {
     latency,
     lostProbes: parsed.probes.length - replies.length,
     status,
+    highLatency: Boolean(latency && latency.avg >= HIGH_LATENCY_MS),
     isPrivate: ip ? isPrivateAddress(ip) : false,
     raw: parsed.raw,
   };
@@ -165,7 +169,7 @@ const ERROR_RULES = [
   {
     test: /unable to resolve|name or service not known|unknown host|cannot resolve|could not resolve/i,
     code: "DNS_FAILED",
-    message: "Unable to trace this destination. The domain could not be resolved.",
+    message: "We couldn't resolve the destination domain. Check the domain name and try again.",
   },
   {
     test: /transmit error|general failure|network is unreachable|no route to host|sendto:/i,

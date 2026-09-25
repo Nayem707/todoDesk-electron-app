@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "../utils/cn";
 
@@ -33,10 +34,12 @@ export function AnalysisErrorCard({
   error,
   fallbackTitle = "Analysis failed",
   titleOverrides,
+  action,
 }: {
   error: { code: string; message: string };
   fallbackTitle?: string;
   titleOverrides?: Record<string, string>;
+  action?: ReactNode;
 }) {
   const title = errorTitle(error.code, titleOverrides) ?? fallbackTitle;
   const informational = INFORMATIONAL_CODES.has(error.code);
@@ -57,6 +60,7 @@ export function AnalysisErrorCard({
       <div>
         <p className="text-sm font-semibold">{title}</p>
         <p className="mt-1 text-sm text-[rgb(var(--muted))]">{error.message}</p>
+        {action && <div className="mt-3">{action}</div>}
       </div>
     </section>
   );
