@@ -60,6 +60,21 @@ contextBridge.exposeInMainWorld("aiAPI", {
   },
 });
 
+contextBridge.exposeInMainWorld("formAssistantAPI", {
+  analyze: (url, requestId) => invoke("formAssistant:analyze", url, requestId),
+  cancel: (requestId) => invoke("formAssistant:cancel", requestId),
+  getHistory: () => invoke("formAssistant:getHistory"),
+  getAnalysis: (id) => invoke("formAssistant:get", id),
+  deleteAnalysis: (id) => invoke("formAssistant:delete", id),
+  updateMapping: (id, fieldKey, mappedField) =>
+    invoke("formAssistant:updateMapping", id, fieldKey, mappedField),
+  onProgress: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("formAssistant:progress", listener);
+    return () => ipcRenderer.removeListener("formAssistant:progress", listener);
+  },
+});
+
 contextBridge.exposeInMainWorld("windowAPI", {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),

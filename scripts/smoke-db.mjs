@@ -90,7 +90,7 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3,4,5") {
+if (versions.join(",") !== "1,2,3,4,5,6") {
   throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
 }
 
@@ -235,6 +235,29 @@ if (!aiReady) {
 const aiImageCols = existingUser.exec("PRAGMA table_info(ai_messages)")[0].values.map((row) => row[1]);
 if (!aiImageCols.includes("image_path") || !aiImageCols.includes("image_mime")) {
   throw new Error("AI message image columns were not created for existing users");
+}
+
+const formAnalysesReady = existingUser.exec(
+  "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'form_analyses'"
+)[0];
+if (!formAnalysesReady) {
+  throw new Error("Form analysis table was not created for existing users");
+}
+migrated.run(
+  `INSERT INTO form_analyses (id, url, title, status, fields, field_count, created_at, updated_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ["fa-1", "https://example.com/apply", "Apply", "completed", JSON.stringify([{ key: "f1" }]), 1, now, now]
+);
+try {
+  migrated.run(
+    `INSERT INTO form_analyses (id, url, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+    ["fa-bad", "https://example.com", "running", now, now]
+  );
+  throw new Error("Invalid form analysis status was allowed");
+} catch (error) {
+  if (String(error.message || error).includes("Invalid form analysis status was allowed")) {
+    throw error;
+  }
 }
 
 migrated.run(

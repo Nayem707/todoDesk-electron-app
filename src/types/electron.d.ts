@@ -8,6 +8,13 @@ import type {
   AiStreamEvent,
 } from "./ai";
 import type { ClipboardItem } from "./clipboard";
+import type {
+  FormAnalysis,
+  FormAnalysisProgressEvent,
+  FormAnalysisSummary,
+  FormAnalyzeResult,
+  SemanticField,
+} from "./formAssistant";
 import type { MarkdownDocument } from "./markdown";
 import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
 
@@ -67,6 +74,20 @@ export interface AiAPI {
   onStream: (callback: (event: AiStreamEvent) => void) => () => void;
 }
 
+export interface FormAssistantAPI {
+  analyze: (url: string, requestId: string) => Promise<IpcResult<FormAnalyzeResult>>;
+  cancel: (requestId: string) => Promise<IpcResult<{ cancelled: boolean }>>;
+  getHistory: () => Promise<IpcResult<FormAnalysisSummary[]>>;
+  getAnalysis: (id: string) => Promise<IpcResult<FormAnalysis>>;
+  deleteAnalysis: (id: string) => Promise<IpcResult<{ id: string }>>;
+  updateMapping: (
+    id: string,
+    fieldKey: string,
+    mappedField: SemanticField | null
+  ) => Promise<IpcResult<FormAnalysis>>;
+  onProgress: (callback: (event: FormAnalysisProgressEvent) => void) => () => void;
+}
+
 export interface WindowAPI {
   minimize: () => void;
   maximize: () => void;
@@ -82,6 +103,7 @@ declare global {
     clipboardAPI: ClipboardAPI;
     markdownAPI: MarkdownAPI;
     aiAPI: AiAPI;
+    formAssistantAPI: FormAssistantAPI;
     windowAPI: WindowAPI;
   }
 }

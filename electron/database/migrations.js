@@ -160,6 +160,35 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 6,
+    name: "create-form-analyses",
+    up(db) {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS form_analyses (
+          id TEXT PRIMARY KEY,
+          url TEXT NOT NULL,
+          final_url TEXT,
+          title TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL
+            CHECK (status IN ('completed', 'failed')),
+          error_code TEXT,
+          error_message TEXT,
+          fields TEXT NOT NULL DEFAULT '[]',
+          forms TEXT NOT NULL DEFAULT '[]',
+          warnings TEXT NOT NULL DEFAULT '[]',
+          field_count INTEGER NOT NULL DEFAULT 0,
+          duration_ms INTEGER,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_form_analyses_created
+          ON form_analyses(created_at);
+      `);
+    },
+  },
 ];
 
 /**

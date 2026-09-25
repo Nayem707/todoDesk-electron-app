@@ -1,4 +1,12 @@
-import { ClipboardList, FileText, ListTodo, Plus, Settings, Sparkles } from "lucide-react";
+import {
+  ClipboardList,
+  FileText,
+  ListTodo,
+  Plus,
+  ScanSearch,
+  Settings,
+  Sparkles,
+} from "lucide-react";
 import { useClipboard } from "../store/ClipboardProvider";
 import { useTodos } from "../store/TodoProvider";
 import type { AppView } from "../types/todo";
@@ -15,6 +23,7 @@ const NAV: { id: AppView; label: string; icon: typeof ListTodo }[] = [
   { id: "clipboard", label: "Clipboard", icon: ClipboardList },
   { id: "markdown", label: "Markdown", icon: FileText },
   { id: "assistant", label: "Assistant", icon: Sparkles },
+  { id: "formAssistant", label: "Form Assistant", icon: ScanSearch },
 ];
 
 export function Sidebar({ view, onViewChange, onCreate }: SidebarProps) {

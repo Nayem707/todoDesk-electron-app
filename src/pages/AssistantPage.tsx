@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowUp,
+  Atom,
   ChevronDown,
   ChevronUp,
-  ImagePlus,
+  Globe,
   MessageSquarePlus,
   PanelLeft,
+  Paperclip,
   RotateCcw,
   Sparkles,
   Trash2,
@@ -75,7 +78,8 @@ export function AssistantPage() {
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftHydratedRef = useRef(cachedDraft !== null);
 
-  const activeConversation = conversations.find((item) => item.id === activeId) ?? null;
+  const activeConversation =
+    conversations.find((item) => item.id === activeId) ?? null;
 
   const resizeDraftInput = () => {
     const el = inputRef.current;
@@ -90,11 +94,14 @@ export function AssistantPage() {
     const borderY =
       (Number.parseFloat(styles.borderTopWidth) || 0) +
       (Number.parseFloat(styles.borderBottomWidth) || 0);
-    const minHeight = lineHeight * 2 + paddingY + borderY;
+    const minHeight = lineHeight * 1 + paddingY + borderY;
     const maxHeight = lineHeight * 8 + paddingY + borderY;
 
     el.style.height = "0px";
-    const nextHeight = Math.min(maxHeight, Math.max(minHeight, el.scrollHeight));
+    const nextHeight = Math.min(
+      maxHeight,
+      Math.max(minHeight, el.scrollHeight),
+    );
     el.style.height = `${nextHeight}px`;
     el.style.overflowY = el.scrollHeight > maxHeight + 1 ? "auto" : "hidden";
   };
@@ -135,8 +142,13 @@ export function AssistantPage() {
   const readFileAsPendingImage = (file: File) =>
     new Promise<PendingImage>((resolve, reject) => {
       const mime = file.type === "image/jpg" ? "image/jpeg" : file.type;
-      if (!ACCEPTED_IMAGE_TYPES.includes(mime) && !ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-        reject(new Error("Unsupported image format. Use PNG, JPG, WEBP, or GIF."));
+      if (
+        !ACCEPTED_IMAGE_TYPES.includes(mime) &&
+        !ACCEPTED_IMAGE_TYPES.includes(file.type)
+      ) {
+        reject(
+          new Error("Unsupported image format. Use PNG, JPG, WEBP, or GIF."),
+        );
         return;
       }
       if (file.size > 12 * 1024 * 1024) {
@@ -252,7 +264,7 @@ export function AssistantPage() {
         if (perf.firstChunkAt === null) {
           perf.firstChunkAt = performance.now();
           console.log(
-            `[ai:perf:ui] First chunk painted: ${(perf.firstChunkAt - perf.startedAt).toFixed(0)} ms`
+            `[ai:perf:ui] First chunk painted: ${(perf.firstChunkAt - perf.startedAt).toFixed(0)} ms`,
           );
         }
       }
@@ -459,7 +471,9 @@ export function AssistantPage() {
       await refreshConversations();
       inputRef.current?.focus();
     } catch (createError) {
-      setError(getErrorMessage(createError, "Could not create a conversation."));
+      setError(
+        getErrorMessage(createError, "Could not create a conversation."),
+      );
     }
   };
 
@@ -485,7 +499,10 @@ export function AssistantPage() {
     }
   };
 
-  const runGeneration = async (action: () => Promise<AiSendResult>, options?: { analyzing?: boolean }) => {
+  const runGeneration = async (
+    action: () => Promise<AiSendResult>,
+    options?: { analyzing?: boolean },
+  ) => {
     streamRequestIdRef.current = null;
     setSending(true);
     setAnalyzingImage(Boolean(options?.analyzing));
@@ -554,7 +571,7 @@ export function AssistantPage() {
       clearPendingImage();
       const ok = await runGeneration(
         () => aiService.sendImageMessage(activeId, content, imagePayload),
-        { analyzing: true }
+        { analyzing: true },
       );
       if (ok) {
         clearDraft();
@@ -566,7 +583,9 @@ export function AssistantPage() {
 
     setDraft("");
     setMessages((current) => [...current, { role: "user", content }]);
-    const ok = await runGeneration(() => aiService.sendMessage(activeId, content));
+    const ok = await runGeneration(() =>
+      aiService.sendMessage(activeId, content),
+    );
     if (ok) {
       clearDraft();
     } else {
@@ -607,7 +626,9 @@ export function AssistantPage() {
       <aside
         className={cn(
           "flex shrink-0 flex-col border-r border-[rgb(var(--border))] bg-[rgb(var(--surface))] transition-[width,opacity] duration-200",
-          sidebarOpen ? "w-64 opacity-100" : "w-0 overflow-hidden border-r-0 opacity-0"
+          sidebarOpen
+            ? "w-64 opacity-100"
+            : "w-0 overflow-hidden border-r-0 opacity-0",
         )}
         aria-hidden={!sidebarOpen}
       >
@@ -627,9 +648,13 @@ export function AssistantPage() {
         </div>
         <div className="todo-scroll min-h-0 flex-1 space-y-0.5 p-2">
           {loadingList ? (
-            <p className="px-2 py-3 text-sm text-[rgb(var(--muted))]">Loading…</p>
+            <p className="px-2 py-3 text-sm text-[rgb(var(--muted))]">
+              Loading…
+            </p>
           ) : conversations.length === 0 ? (
-            <p className="px-2 py-3 text-sm text-[rgb(var(--muted))]">No conversations yet.</p>
+            <p className="px-2 py-3 text-sm text-[rgb(var(--muted))]">
+              No conversations yet.
+            </p>
           ) : (
             conversations.map((conversation) => (
               <div
@@ -638,7 +663,7 @@ export function AssistantPage() {
                   "group flex items-start gap-1 rounded-xl px-2 py-2",
                   activeId === conversation.id
                     ? "bg-[rgb(var(--accent))]/15"
-                    : "hover:bg-black/5 dark:hover:bg-white/10"
+                    : "hover:bg-black/5 dark:hover:bg-white/10",
                 )}
               >
                 <button
@@ -647,7 +672,9 @@ export function AssistantPage() {
                   disabled={sending}
                   className="min-w-0 flex-1 text-left disabled:opacity-60"
                 >
-                  <p className="truncate text-sm font-medium">{conversation.title}</p>
+                  <p className="truncate text-sm font-medium">
+                    {conversation.title}
+                  </p>
                   <p className="mt-0.5 text-[11px] text-[rgb(var(--muted))]">
                     {formatDateTime(conversation.updatedAt)}
                   </p>
@@ -677,7 +704,9 @@ export function AssistantPage() {
             type="button"
             onClick={() => setSidebarOpen((open) => !open)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[rgb(var(--border))] hover:bg-black/5 dark:hover:bg-white/10"
-            aria-label={sidebarOpen ? "Hide conversations" : "Show conversations"}
+            aria-label={
+              sidebarOpen ? "Hide conversations" : "Show conversations"
+            }
             title={sidebarOpen ? "Hide conversations" : "Show conversations"}
           >
             <PanelLeft size={16} />
@@ -729,9 +758,14 @@ export function AssistantPage() {
           </div>
         )}
 
-        <div ref={listRef} className="todo-scroll min-h-0 flex-1 px-4 py-5 sm:px-6 lg:px-8">
+        <div
+          ref={listRef}
+          className="todo-scroll min-h-0 flex-1 px-4 py-5 sm:px-6 lg:px-8"
+        >
           {loadingChat ? (
-            <p className="text-sm text-[rgb(var(--muted))]">Loading conversation…</p>
+            <p className="text-sm text-[rgb(var(--muted))]">
+              Loading conversation…
+            </p>
           ) : showEmpty ? (
             <div className="flex h-full items-center justify-center">
               <EmptyState
@@ -752,7 +786,9 @@ export function AssistantPage() {
               ))}
               {streamText ? <StreamingBubble content={streamText} /> : null}
               {sending && !streamText ? (
-                <TypingIndicator label={analyzingImage ? "Analyzing image…" : undefined} />
+                <TypingIndicator
+                  label={analyzingImage ? "Analyzing image…" : undefined}
+                />
               ) : null}
             </div>
           )}
@@ -801,14 +837,16 @@ export function AssistantPage() {
           />
 
           {pendingImage && (
-            <div className="mb-2 flex items-start gap-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-2">
+            <div className="mb-2 flex items-start gap-3 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-2.5">
               <img
                 src={pendingImage.previewUrl}
                 alt={pendingImage.name}
-                className="h-16 w-16 rounded-lg object-cover"
+                className="h-16 w-16 rounded-xl object-cover"
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{pendingImage.name}</p>
+                <p className="truncate text-sm font-medium">
+                  {pendingImage.name}
+                </p>
                 <p className="mt-0.5 text-xs text-[rgb(var(--muted))]">
                   Ready to analyze with qwen2.5vl
                 </p>
@@ -828,23 +866,12 @@ export function AssistantPage() {
 
           <div
             className={cn(
-              "flex w-full items-end gap-2 rounded-xl border bg-[rgb(var(--surface))] p-2",
+              "flex w-full flex-col rounded-[28px] border bg-[rgb(var(--surface))] px-4 pb-3 pt-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
               dragOver
                 ? "border-[rgb(var(--accent))] ring-2 ring-[rgb(var(--accent))]/30"
-                : "border-[rgb(var(--border))]"
+                : "border-[rgb(var(--border))]",
             )}
           >
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={sending}
-              className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-lg border border-[rgb(var(--border))] px-2.5 text-sm text-[rgb(var(--muted))] hover:bg-black/5 hover:text-[rgb(var(--text))] disabled:opacity-40 dark:hover:bg-white/10"
-              title="Attach Image"
-              aria-label="Attach Image"
-            >
-              <ImagePlus size={16} />
-              <span className="hidden sm:inline">Attach</span>
-            </button>
             <textarea
               ref={inputRef}
               value={draft}
@@ -858,7 +885,7 @@ export function AssistantPage() {
                   void send();
                 }
               }}
-              rows={2}
+              rows={1}
               disabled={sending}
               placeholder={
                 pendingImage
@@ -866,8 +893,53 @@ export function AssistantPage() {
                   : "Message llama3.2"
               }
               aria-label="Message"
-              className="todo-scroll min-h-[42px] flex-1 resize-none overflow-hidden rounded-lg bg-transparent px-2 py-2 text-sm leading-5 outline-none placeholder:text-[rgb(var(--muted))] disabled:opacity-60"
+              className="todo-scroll min-h-[28px] w-full resize-none overflow-hidden bg-transparent px-0.5 text-[15px] leading-6 text-[rgb(var(--text))] outline-none placeholder:text-[rgb(var(--muted))] disabled:opacity-60"
             />
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled
+                  title="Coming soon"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[rgb(var(--border))] bg-transparent px-3.5 text-[13px] font-medium text-[rgb(var(--text))] opacity-70"
+                >
+                  <Atom size={15} strokeWidth={1.75} />
+                  DeepThink
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  title="Coming soon"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-transparent bg-[rgb(var(--accent))]/12 px-3.5 text-[13px] font-medium text-[rgb(var(--accent))]"
+                >
+                  <Globe size={15} strokeWidth={1.75} />
+                  Search
+                </button>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sending}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[rgb(var(--text))] hover:bg-black/5 disabled:opacity-40 dark:hover:bg-white/10"
+                  title="Attach Image"
+                  aria-label="Attach Image"
+                >
+                  <Paperclip size={18} strokeWidth={1.75} />
+                </button>
+                <button
+                  type="submit"
+                  disabled={sending || (!draft.trim() && !pendingImage)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[rgb(var(--accent))] text-white transition hover:bg-[#3f5cf0] disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Send"
+                  aria-label="Send"
+                >
+                  <ArrowUp size={18} strokeWidth={2.25} />
+                </button>
+              </div>
+            </div>
           </div>
         </form>
       </section>
@@ -876,7 +948,10 @@ export function AssistantPage() {
 }
 
 function messageKey(message: AiMessage) {
-  return message.id ?? `${message.role}-${message.createdAt}-${message.content.slice(0, 24)}`;
+  return (
+    message.id ??
+    `${message.role}-${message.createdAt}-${message.content.slice(0, 24)}`
+  );
 }
 
 type AiNavState = "checking" | "active" | "offline" | "missing";
@@ -925,11 +1000,14 @@ function AiStatusButton({
         state === "missing" &&
           "border-amber-500/35 bg-amber-500/10 text-amber-800 hover:bg-amber-500/15 dark:text-amber-300",
         (state === "offline" || state === "checking") &&
-          "border-[rgb(var(--border))] bg-black/5 text-[rgb(var(--muted))] hover:bg-black/10 dark:hover:bg-white/10"
+          "border-[rgb(var(--border))] bg-black/5 text-[rgb(var(--muted))] hover:bg-black/10 dark:hover:bg-white/10",
       )}
     >
       {state === "active" ? (
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+        <span
+          className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+          aria-hidden="true"
+        />
       ) : state === "missing" ? (
         <span aria-hidden="true">⚠</span>
       ) : (
@@ -952,7 +1030,7 @@ function MessageBubble({ message }: { message: AiMessage }) {
         "rounded-2xl px-4 py-3 text-sm leading-6",
         isUser
           ? "ml-auto max-w-[85%] bg-[rgb(var(--accent))] text-[rgb(var(--accent-foreground))]"
-          : "mr-auto w-full max-w-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))]"
+          : "mr-auto w-full max-w-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))]",
       )}
     >
       <p className="mb-1 text-[11px] font-medium uppercase tracking-wide opacity-70">
@@ -966,7 +1044,9 @@ function MessageBubble({ message }: { message: AiMessage }) {
         />
       ) : null}
       {isUser && message.imageMissing ? (
-        <p className="mb-2 text-xs opacity-80">Attached image is missing on disk.</p>
+        <p className="mb-2 text-xs opacity-80">
+          Attached image is missing on disk.
+        </p>
       ) : null}
       {isUser ? (
         <CollapsibleUserText content={message.content} />
@@ -1092,7 +1172,10 @@ function TypingIndicator({ label }: { label?: string }) {
         Assistant
       </p>
       <span className="flex items-center gap-2 text-sm text-[rgb(var(--muted))]">
-        <span className="flex items-center gap-1" aria-label={label || "Generating a reply"}>
+        <span
+          className="flex items-center gap-1"
+          aria-label={label || "Generating a reply"}
+        >
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgb(var(--muted))]" />
           <span
             className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgb(var(--muted))]"

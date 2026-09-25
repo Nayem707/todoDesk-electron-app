@@ -4,6 +4,7 @@ import * as settingsRepository from "../database/settingsRepository.js";
 import * as clipboardRepository from "../database/clipboardRepository.js";
 import * as markdownRepository from "../database/markdownRepository.js";
 import * as aiService from "../ai/aiService.js";
+import * as formAssistantService from "../formAssistant/formAssistantService.js";
 import { writeClipboardInternal } from "../clipboardWatcher.js";
 
 function handle(channel, handler) {
@@ -148,5 +149,47 @@ export function registerIpcHandlers(getMainWindow) {
     }
   });
 
-  void getMainWindow;
+  registerFormAssistantHandlers(getMainWindow);
+}
+
+function registerFormAssistantHandlers(getMainWindow) {
+  const fromMainWindow = (event) => event.sender === getMainWindow()?.webContents;
+
+  const handleTrusted = (channel, handler) => {
+    ipcMain.handle(channel, async (event, ...args) => {
+      if (!fromMainWindow(event)) {
+        return { ok: false, error: "Request rejected." };
+      }
+      try {
+        return { ok: true, data: await handler(event, ...args) };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unexpected error";
+        console.error(`[IPC ${channel}]`, error);
+        return { ok: false, error: message };
+      }
+    });
+  };
+
+  handleTrusted("formAssistant:getHistory", () => formAssistantService.listAnalyses());
+  handleTrusted("formAssistant:get", (_event, id) => formAssistantService.getAnalysis(id));
+  handleTrusted("formAssistant:delete", (_event, id) => formAssistantService.deleteAnalysis(id));
+  handleTrusted("formAssistant:updateMapping", (_event, id, fieldKey, mappedField) =>
+    formAssistantService.updateFieldMapping(id, fieldKey, mappedField ?? null)
+  );
+  handleTrusted("formAssistant:cancel", (_event, requestId) =>
+    formAssistantService.cancelAnalysis(typeof requestId === "string" ? requestId : null)
+  );
+  handleTrusted("formAssistant:analyze", (event, url, requestId) => {
+    if (typeof requestId !== "string" || !requestId || requestId.length > 100) {
+      throw new Error("Invalid request.");
+    }
+    return formAssistantService.analyze(url, {
+      requestId,
+      emit: (payload) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send("formAssistant:progress", payload);
+        }
+      },
+    });
+  });
 }

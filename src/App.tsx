@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import { AppShell } from "./layouts/AppShell";
 import { AssistantPage } from "./pages/AssistantPage";
 import { ClipboardPage } from "./pages/ClipboardPage";
+import { FormAssistantPage } from "./pages/FormAssistantPage";
 import { MarkdownPage } from "./pages/MarkdownPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodoPage } from "./pages/TodoPage";
@@ -47,7 +48,7 @@ function AppFrame() {
 
   useKeyboardShortcuts({
     onNew: () => {
-      if (view !== "settings" && view !== "clipboard" && view !== "markdown" && view !== "assistant") {
+      if (view === "todo") {
         openCreate();
       }
     },
@@ -70,6 +71,9 @@ function AppFrame() {
     }
     if (view === "assistant") {
       return <AssistantPage />;
+    }
+    if (view === "formAssistant") {
+      return <FormAssistantPage />;
     }
     return (
       <TodoPage
