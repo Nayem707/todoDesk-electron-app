@@ -5,6 +5,7 @@ import * as clipboardRepository from "../database/clipboardRepository.js";
 import * as markdownRepository from "../database/markdownRepository.js";
 import * as aiService from "../ai/aiService.js";
 import * as formAssistantService from "../formAssistant/formAssistantService.js";
+import * as webAuditService from "../webAudit/webAuditService.js";
 import { writeClipboardInternal } from "../clipboardWatcher.js";
 
 function handle(channel, handler) {
@@ -149,13 +150,16 @@ export function registerIpcHandlers(getMainWindow) {
     }
   });
 
-  registerFormAssistantHandlers(getMainWindow);
+  const handleTrusted = createTrustedHandler(getMainWindow);
+  registerFormAssistantHandlers(handleTrusted);
+  registerWebAuditHandlers(handleTrusted);
 }
 
-function registerFormAssistantHandlers(getMainWindow) {
+/** Handlers that drive a real browser only accept requests from the app's own window. */
+function createTrustedHandler(getMainWindow) {
   const fromMainWindow = (event) => event.sender === getMainWindow()?.webContents;
 
-  const handleTrusted = (channel, handler) => {
+  return (channel, handler) => {
     ipcMain.handle(channel, async (event, ...args) => {
       if (!fromMainWindow(event)) {
         return { ok: false, error: "Request rejected." };
@@ -169,7 +173,35 @@ function registerFormAssistantHandlers(getMainWindow) {
       }
     });
   };
+}
 
+function isValidRequestId(requestId) {
+  return typeof requestId === "string" && requestId.length > 0 && requestId.length <= 100;
+}
+
+function registerWebAuditHandlers(handleTrusted) {
+  handleTrusted("webAudit:getHistory", () => webAuditService.listAudits());
+  handleTrusted("webAudit:get", (_event, id) => webAuditService.getAudit(id));
+  handleTrusted("webAudit:delete", (_event, id) => webAuditService.deleteAudit(id));
+  handleTrusted("webAudit:cancel", (_event, requestId) =>
+    webAuditService.cancelAudit(typeof requestId === "string" ? requestId : null)
+  );
+  handleTrusted("webAudit:start", (event, url, requestId) => {
+    if (!isValidRequestId(requestId)) {
+      throw new Error("Invalid request.");
+    }
+    return webAuditService.startAudit(url, {
+      requestId,
+      emit: (payload) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send("webAudit:progress", payload);
+        }
+      },
+    });
+  });
+}
+
+function registerFormAssistantHandlers(handleTrusted) {
   handleTrusted("formAssistant:getHistory", () => formAssistantService.listAnalyses());
   handleTrusted("formAssistant:get", (_event, id) => formAssistantService.getAnalysis(id));
   handleTrusted("formAssistant:delete", (_event, id) => formAssistantService.deleteAnalysis(id));

@@ -13,7 +13,7 @@ export type AppView =
   | "clipboard"
   | "markdown"
   | "assistant"
-  | "formAssistant"
+  | "webAnalyze"
   | "settings";
 
 export type FilterOption =

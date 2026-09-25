@@ -3,10 +3,10 @@ import { Toaster } from "sonner";
 import { AppShell } from "./layouts/AppShell";
 import { AssistantPage } from "./pages/AssistantPage";
 import { ClipboardPage } from "./pages/ClipboardPage";
-import { FormAssistantPage } from "./pages/FormAssistantPage";
 import { MarkdownPage } from "./pages/MarkdownPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodoPage } from "./pages/TodoPage";
+import { WebAnalyzePage } from "./pages/WebAnalyzePage";
 import { TodoModal } from "./components/TodoModal";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
@@ -72,8 +72,8 @@ function AppFrame() {
     if (view === "assistant") {
       return <AssistantPage />;
     }
-    if (view === "formAssistant") {
-      return <FormAssistantPage />;
+    if (view === "webAnalyze") {
+      return <WebAnalyzePage />;
     }
     return (
       <TodoPage

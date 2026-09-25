@@ -90,7 +90,7 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3,4,5,6") {
+if (versions.join(",") !== "1,2,3,4,5,6,7") {
   throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
 }
 
@@ -256,6 +256,29 @@ try {
   throw new Error("Invalid form analysis status was allowed");
 } catch (error) {
   if (String(error.message || error).includes("Invalid form analysis status was allowed")) {
+    throw error;
+  }
+}
+
+const webAuditsReady = existingUser.exec(
+  "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'web_audits'"
+)[0];
+if (!webAuditsReady) {
+  throw new Error("Web audit table was not created for existing users");
+}
+migrated.run(
+  `INSERT INTO web_audits (id, url, title, status, overall_score, report, created_at, updated_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ["wa-1", "https://example.com/", "Example", "completed", 82, JSON.stringify({ overallScore: 82 }), now, now]
+);
+try {
+  migrated.run(
+    `INSERT INTO web_audits (id, url, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+    ["wa-bad", "https://example.com", "running", now, now]
+  );
+  throw new Error("Invalid web audit status was allowed");
+} catch (error) {
+  if (String(error.message || error).includes("Invalid web audit status was allowed")) {
     throw error;
   }
 }

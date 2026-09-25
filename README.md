@@ -168,10 +168,10 @@ Click **Clipboard** in the sidebar. TodoDesk watches the system clipboard and sa
 
 **Filter / sort bar** (under search):
 
-| Control | Behavior |
-| ------- | -------- |
-| **All** | Show every clipboard item (default) |
-| **Pin** | Show only pinned items |
+| Control  | Behavior                            |
+| -------- | ----------------------------------- |
+| **All**  | Show every clipboard item (default) |
+| **Pin**  | Show only pinned items              |
 | **Sort** | Last Copied ↓ / ↑, Copy Count ↓ / ↑ |
 
 Default state when the page opens:

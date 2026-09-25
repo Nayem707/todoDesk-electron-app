@@ -23,7 +23,7 @@ const NAV: { id: AppView; label: string; icon: typeof ListTodo }[] = [
   { id: "clipboard", label: "Clipboard", icon: ClipboardList },
   { id: "markdown", label: "Markdown", icon: FileText },
   { id: "assistant", label: "Assistant", icon: Sparkles },
-  { id: "formAssistant", label: "Form Assistant", icon: ScanSearch },
+  { id: "webAnalyze", label: "Web Analyze", icon: ScanSearch },
 ];
 
 export function Sidebar({ view, onViewChange, onCreate }: SidebarProps) {

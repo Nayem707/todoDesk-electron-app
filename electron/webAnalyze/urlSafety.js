@@ -1,6 +1,6 @@
 import dns from "dns/promises";
 import net from "net";
-import { FormAssistantError } from "./errors.js";
+import { WebAnalyzeError } from "./errors.js";
 
 const MAX_URL_LENGTH = 2048;
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
@@ -80,18 +80,18 @@ function isBlockedHostname(hostname) {
 }
 
 /**
- * Parses and statically validates a user-supplied URL. Throws FormAssistantError("INVALID_URL")
+ * Parses and statically validates a user-supplied URL. Throws WebAnalyzeError("INVALID_URL")
  * or ("UNSUPPORTED_URL") with a user-facing message.
  * @param {unknown} input
  * @returns {URL}
  */
 export function parseTargetUrl(input) {
   if (typeof input !== "string" || !input.trim()) {
-    throw new FormAssistantError("INVALID_URL", "Enter a website URL to analyze.");
+    throw new WebAnalyzeError("INVALID_URL", "Enter a website URL to analyze.");
   }
   let raw = input.trim();
   if (raw.length > MAX_URL_LENGTH) {
-    throw new FormAssistantError("INVALID_URL", "That URL is too long.");
+    throw new WebAnalyzeError("INVALID_URL", "That URL is too long.");
   }
   if (!/^[a-z][a-z0-9+.-]*:/i.test(raw)) {
     raw = `https://${raw}`;
@@ -101,26 +101,26 @@ export function parseTargetUrl(input) {
   try {
     url = new URL(raw);
   } catch {
-    throw new FormAssistantError("INVALID_URL", "That doesn't look like a valid website URL.");
+    throw new WebAnalyzeError("INVALID_URL", "That doesn't look like a valid website URL.");
   }
 
   if (!ALLOWED_PROTOCOLS.has(url.protocol)) {
-    throw new FormAssistantError(
+    throw new WebAnalyzeError(
       "UNSUPPORTED_URL",
       "Only http:// and https:// websites can be analyzed."
     );
   }
   if (url.username || url.password) {
-    throw new FormAssistantError(
+    throw new WebAnalyzeError(
       "UNSUPPORTED_URL",
       "URLs containing a username or password are not supported."
     );
   }
   if (!url.hostname) {
-    throw new FormAssistantError("INVALID_URL", "That URL has no website address.");
+    throw new WebAnalyzeError("INVALID_URL", "That URL has no website address.");
   }
   if (isBlockedHostname(url.hostname) || isPrivateAddress(url.hostname)) {
-    throw new FormAssistantError(
+    throw new WebAnalyzeError(
       "UNSUPPORTED_URL",
       "Local and private network addresses cannot be analyzed."
     );
@@ -137,7 +137,7 @@ export function parseTargetUrl(input) {
 export async function assertPublicHost(hostname, { lookup = dns.lookup } = {}) {
   const host = hostname.replace(/^\[|\]$/g, "");
   if (isBlockedHostname(host) || isPrivateAddress(host)) {
-    throw new FormAssistantError(
+    throw new WebAnalyzeError(
       "UNSUPPORTED_URL",
       "Local and private network addresses cannot be analyzed."
     );
@@ -149,13 +149,13 @@ export async function assertPublicHost(hostname, { lookup = dns.lookup } = {}) {
   try {
     addresses = await lookup(host, { all: true, verbatim: true });
   } catch {
-    throw new FormAssistantError(
+    throw new WebAnalyzeError(
       "UNREACHABLE",
       "The website could not be found. Check the address and your internet connection."
     );
   }
   if (!addresses.length || addresses.some((entry) => isPrivateAddress(entry.address))) {
-    throw new FormAssistantError(
+    throw new WebAnalyzeError(
       "UNSUPPORTED_URL",
       "This website points to a local or private network address and cannot be analyzed."
     );

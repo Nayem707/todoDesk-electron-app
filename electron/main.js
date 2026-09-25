@@ -6,6 +6,7 @@ import { registerIpcHandlers } from "./ipc/register.js";
 import { startClipboardWatcher, stopClipboardWatcher } from "./clipboardWatcher.js";
 import { loadWindowState, saveWindowState } from "./windowState.js";
 import { shutdown as shutdownFormAssistant } from "./formAssistant/formAssistantService.js";
+import { shutdown as shutdownWebAudit } from "./webAudit/webAuditService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -131,6 +132,7 @@ app.on("activate", async () => {
 app.on("before-quit", () => {
   stopClipboardWatcher();
   void shutdownFormAssistant();
+  shutdownWebAudit();
   if (mainWindow) {
     saveWindowState(mainWindow);
   }

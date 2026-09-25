@@ -1,14 +1,17 @@
-export class FormAssistantError extends Error {
+/** A failure with a stable code and a user-facing message, shared by all Web Analyze tools. */
+export class WebAnalyzeError extends Error {
   /**
    * @param {string} code
    * @param {string} message User-facing message; never include stack traces or internals.
    */
   constructor(code, message) {
     super(message);
-    this.name = "FormAssistantError";
+    this.name = "WebAnalyzeError";
     this.code = code;
   }
 }
+
+export { WebAnalyzeError as FormAssistantError, toWebAnalyzeError as toFormAssistantError };
 
 const NET_ERROR_RULES = [
   {
@@ -49,27 +52,27 @@ const NET_ERROR_RULES = [
 ];
 
 /**
- * Converts any thrown value into a FormAssistantError with a friendly message.
+ * Converts any thrown value into a WebAnalyzeError with a friendly message.
  * @param {unknown} error
- * @returns {FormAssistantError}
+ * @returns {WebAnalyzeError}
  */
-export function toFormAssistantError(error) {
-  if (error instanceof FormAssistantError) {
+export function toWebAnalyzeError(error) {
+  if (error instanceof WebAnalyzeError) {
     return error;
   }
   const raw = error instanceof Error ? `${error.name} ${error.message}` : String(error);
   if (error instanceof Error && error.name === "TimeoutError") {
-    return new FormAssistantError("TIMEOUT", "The website took too long to load.");
+    return new WebAnalyzeError("TIMEOUT", "The website took too long to load.");
   }
   for (const rule of NET_ERROR_RULES) {
     if (rule.test.test(raw)) {
-      return new FormAssistantError(rule.code, rule.message);
+      return new WebAnalyzeError(rule.code, rule.message);
     }
   }
   if (/Target (page, context or browser )?closed|Browser closed|browser has been closed/i.test(raw)) {
-    return new FormAssistantError("CANCELLED", "The analysis was stopped.");
+    return new WebAnalyzeError("CANCELLED", "The analysis was stopped.");
   }
-  return new FormAssistantError(
+  return new WebAnalyzeError(
     "BROWSER_ERROR",
     "Something went wrong while analyzing the page. Try again."
   );

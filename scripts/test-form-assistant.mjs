@@ -1,7 +1,7 @@
 import http from "http";
 import { analyzeWebsite } from "../electron/formAssistant/formAnalyzer.js";
 import { mapFields, normalizeText, ruleBasedMapper } from "../electron/formAssistant/fieldMapper.js";
-import { parseTargetUrl, isPrivateAddress, strictUrlPolicy } from "../electron/formAssistant/urlSafety.js";
+import { parseTargetUrl, isPrivateAddress, strictUrlPolicy } from "../electron/webAnalyze/urlSafety.js";
 import { formatDateForField, matchOption, planField } from "../electron/formAssistant/autofillPlanner.js";
 import { runAutofill } from "../electron/formAssistant/autofillService.js";
 import { DUMMY_PROFILE } from "../electron/formAssistant/dummyProfile.js";

@@ -1,8 +1,8 @@
-import { openBrowserSession } from "./browserSession.js";
+import { openBrowserSession } from "../webAnalyze/browserSession.js";
+import { FormAssistantError, toFormAssistantError } from "../webAnalyze/errors.js";
+import { strictUrlPolicy } from "../webAnalyze/urlSafety.js";
 import { planAutofill } from "./autofillPlanner.js";
 import { DUMMY_PROFILE } from "./dummyProfile.js";
-import { FormAssistantError, toFormAssistantError } from "./errors.js";
-import { strictUrlPolicy } from "./urlSafety.js";
 
 const FIELD_TIMEOUT_MS = 4_000;
 const DEFAULT_TIMEOUTS = { navigationTimeoutMs: 30_000, settleTimeoutMs: 12_000, fillTimeoutMs: 120_000 };

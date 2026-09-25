@@ -1,42 +1,23 @@
 import { useMemo, useRef, useState } from "react";
-import { AlertTriangle, ExternalLink, History, ScanSearch, Square, Trash2 } from "lucide-react";
+import { AlertTriangle, ExternalLink, History, ScanSearch } from "lucide-react";
+import { AnalysisErrorCard, errorTitle } from "../components/AnalysisErrorCard";
+import { AnalysisHistoryList } from "../components/AnalysisHistoryList";
 import { AnalysisProgress } from "../components/AnalysisProgress";
 import { AutofillPanel } from "../components/AutofillPanel";
 import { EmptyState } from "../components/EmptyState";
 import { FormFieldTable, type FieldFillStatus } from "../components/FormFieldTable";
 import { StatCard } from "../components/StatCard";
 import { Tabs } from "../components/Tabs";
+import { UrlAnalyzeForm } from "../components/UrlAnalyzeForm";
 import { useAutofill } from "../hooks/useAutofill";
 import { useFormAnalysis } from "../hooks/useFormAnalysis";
 import { isUncertain } from "../services/formAssistantService";
-import type {
-  FormAnalysis,
-  FormAnalysisError,
-  FormAnalysisSummary,
-} from "../types/formAssistant";
-import { cn } from "../utils/cn";
+import type { FormAnalysis } from "../types/formAssistant";
 import { formatDateTime } from "../utils/dates";
 
 type Pane = "analyze" | "history";
 
-const ERROR_TITLES: Record<string, string> = {
-  INVALID_URL: "Invalid URL",
-  UNSUPPORTED_URL: "Unsupported address",
-  UNREACHABLE: "Website unreachable",
-  TIMEOUT: "Navigation timed out",
-  SSL_ERROR: "Certificate problem",
-  NO_FORMS: "No forms found",
-  PAGE_LOAD_FAILED: "Page failed to load",
-  BROWSER_UNAVAILABLE: "Browser not available",
-  BROWSER_ERROR: "Browser error",
-  AUTH_REQUIRED: "Sign-in required",
-  CAPTCHA_DETECTED: "CAPTCHA detected",
-  BLOCKED: "Access blocked",
-  TOO_MANY_REDIRECTS: "Too many redirects",
-  CANCELLED: "Analysis stopped",
-  BUSY: "Analysis in progress",
-};
-
+/** Form Assistant tool body; rendered inside the Web Analyze page, which owns the page header. */
 export function FormAssistantPage() {
   const {
     url,
@@ -56,14 +37,7 @@ export function FormAssistantPage() {
   const [pane, setPane] = useState<Pane>("analyze");
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Form Assistant</h1>
-        <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-          Detect the form fields on a website and see what each one asks for.
-        </p>
-      </div>
-
+    <div className="space-y-5">
       <Tabs
         items={[
           { id: "analyze", label: "Analyze", icon: ScanSearch },
@@ -76,53 +50,18 @@ export function FormAssistantPage() {
 
       {pane === "analyze" ? (
         <>
-          <form
-            className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-5 shadow-card dark:shadow-card-dark"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void analyze();
-            }}
-          >
-            <label htmlFor="form-assistant-url" className="mb-1.5 block text-sm font-medium">
-              Website URL
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                id="form-assistant-url"
-                type="text"
-                inputMode="url"
-                autoComplete="off"
-                spellCheck={false}
-                value={url}
-                disabled={running}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder="https://example.com/application"
-                className="min-w-0 flex-1 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--accent))] disabled:opacity-60"
-              />
-              {running ? (
-                <button
-                  type="button"
-                  onClick={() => void cancel()}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-[rgb(var(--border))] px-4 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  <Square size={13} />
-                  Stop
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!url.trim()}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[rgb(var(--accent))] px-4 py-2 text-sm font-medium text-[rgb(var(--accent-foreground))] transition hover:opacity-90 disabled:opacity-50"
-                >
-                  <ScanSearch size={15} />
-                  Analyze Website
-                </button>
-              )}
-            </div>
-            <p className="mt-2 text-xs text-[rgb(var(--muted))]">
-              Only public http:// and https:// pages. Nothing is filled in or submitted.
-            </p>
-          </form>
+          <UrlAnalyzeForm
+            inputId="form-assistant-url"
+            value={url}
+            onChange={setUrl}
+            running={running}
+            onSubmit={() => void analyze()}
+            onCancel={() => void cancel()}
+            submitLabel="Analyze Website"
+            submitIcon={ScanSearch}
+            placeholder="https://example.com/application"
+            hint="Only public http:// and https:// pages. Nothing is filled in or submitted."
+          />
 
           {running ? (
             <AnalysisProgress step={step} />
@@ -141,7 +80,7 @@ export function FormAssistantPage() {
           )}
         </>
       ) : (
-        <HistoryList
+        <AnalysisHistoryList
           items={history}
           loading={loadingHistory}
           onOpen={async (item) => {
@@ -150,42 +89,18 @@ export function FormAssistantPage() {
             }
           }}
           onDelete={(item) => void deleteAnalysis(item.id)}
+          renderBadge={(item) => (
+            <span className="rounded-full bg-[rgb(var(--accent))]/10 px-2 py-0.5 text-[rgb(var(--accent))]">
+              {item.fieldCount} {item.fieldCount === 1 ? "field" : "fields"}
+            </span>
+          )}
+          failedLabel={(item) => errorTitle(item.errorCode) ?? "Failed"}
+          emptyTitle="No analyses yet"
+          emptyDescription="Websites you analyze are saved here so you can review their fields again."
+          deleteLabel="Delete analysis"
         />
       )}
     </div>
-  );
-}
-
-function hostOf(value: string) {
-  try {
-    return new URL(value).host;
-  } catch {
-    return value;
-  }
-}
-
-function AnalysisErrorCard({ error }: { error: FormAnalysisError }) {
-  const title = ERROR_TITLES[error.code] ?? "Analysis failed";
-  const informational = error.code === "NO_FORMS" || error.code === "CANCELLED";
-  return (
-    <section
-      role="alert"
-      className={cn(
-        "flex items-start gap-3 rounded-2xl border p-5",
-        informational
-          ? "border-[rgb(var(--border))] bg-[rgb(var(--surface))]"
-          : "border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/40"
-      )}
-    >
-      <AlertTriangle
-        size={18}
-        className={cn("mt-0.5 shrink-0", informational ? "text-[rgb(var(--muted))]" : "text-[rgb(var(--danger))]")}
-      />
-      <div>
-        <p className="text-sm font-semibold">{title}</p>
-        <p className="mt-1 text-sm text-[rgb(var(--muted))]">{error.message}</p>
-      </div>
-    </section>
   );
 }
 
@@ -281,87 +196,5 @@ function AnalysisResult({
         <FormFieldTable fields={analysis.fields} statuses={statuses} onMappingChange={onMappingChange} />
       </div>
     </section>
-  );
-}
-
-function HistoryList({
-  items,
-  loading,
-  onOpen,
-  onDelete,
-}: {
-  items: FormAnalysisSummary[];
-  loading: boolean;
-  onOpen: (item: FormAnalysisSummary) => void;
-  onDelete: (item: FormAnalysisSummary) => void;
-}) {
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="h-20 animate-pulse rounded-2xl bg-black/10 dark:bg-white/10" />
-        ))}
-      </div>
-    );
-  }
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        title="No analyses yet"
-        description="Websites you analyze are saved here so you can review their fields again."
-      />
-    );
-  }
-  return (
-    <div className="space-y-3">
-      {items.map((item) => (
-        <article
-          key={item.id}
-          role="button"
-          tabIndex={0}
-          onClick={() => onOpen(item)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onOpen(item);
-            }
-          }}
-          className="cursor-pointer rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-4 shadow-card transition hover:border-[rgb(var(--accent))]/40 dark:shadow-card-dark"
-        >
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <h3 className="truncate text-sm font-semibold leading-5">
-                {item.title || hostOf(item.url)}
-              </h3>
-              <p className="mt-0.5 truncate text-xs text-[rgb(var(--muted))]">{item.url}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[rgb(var(--muted))]">
-                {item.status === "completed" ? (
-                  <span className="rounded-full bg-[rgb(var(--accent))]/10 px-2 py-0.5 text-[rgb(var(--accent))]">
-                    {item.fieldCount} {item.fieldCount === 1 ? "field" : "fields"}
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-800 dark:bg-rose-950 dark:text-rose-200">
-                    {ERROR_TITLES[item.errorCode ?? ""] ?? "Failed"}
-                  </span>
-                )}
-                <span>{formatDateTime(item.createdAt)}</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelete(item);
-              }}
-              className="rounded-md p-1.5 text-[rgb(var(--muted))] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950"
-              aria-label="Delete analysis"
-              title="Delete"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        </article>
-      ))}
-    </div>
   );
 }

@@ -1,10 +1,10 @@
 import * as formAnalysisRepository from "../database/formAnalysisRepository.js";
-import { FormAssistantError, toFormAssistantError } from "./errors.js";
+import { FormAssistantError, toFormAssistantError } from "../webAnalyze/errors.js";
+import { parseTargetUrl } from "../webAnalyze/urlSafety.js";
 import { isKnownField } from "./fieldMapper.js";
 import { analyzeWebsite } from "./formAnalyzer.js";
 import { planAutofill } from "./autofillPlanner.js";
 import { runAutofill } from "./autofillService.js";
-import { parseTargetUrl } from "./urlSafety.js";
 
 /** Failures that happen before a site is contacted aren't worth keeping in history. */
 const UNSAVED_ERROR_CODES = new Set(["INVALID_URL", "UNSUPPORTED_URL", "CANCELLED", "BUSY"]);

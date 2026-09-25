@@ -20,6 +20,7 @@ import type {
 } from "./formAssistant";
 import type { MarkdownDocument } from "./markdown";
 import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
+import type { WebAudit, WebAuditProgressEvent, WebAuditResult, WebAuditSummary } from "./webAudit";
 
 export interface TodoAPI {
   getTodos: () => Promise<IpcResult<Todo[]>>;
@@ -96,6 +97,15 @@ export interface FormAssistantAPI {
   onFillProgress: (callback: (event: AutofillProgressEvent) => void) => () => void;
 }
 
+export interface WebAuditAPI {
+  start: (url: string, requestId: string) => Promise<IpcResult<WebAuditResult>>;
+  cancel: (requestId: string) => Promise<IpcResult<{ cancelled: boolean }>>;
+  getHistory: () => Promise<IpcResult<WebAuditSummary[]>>;
+  getAudit: (id: string) => Promise<IpcResult<WebAudit>>;
+  deleteAudit: (id: string) => Promise<IpcResult<{ id: string }>>;
+  onProgress: (callback: (event: WebAuditProgressEvent) => void) => () => void;
+}
+
 export interface WindowAPI {
   minimize: () => void;
   maximize: () => void;
@@ -112,6 +122,7 @@ declare global {
     markdownAPI: MarkdownAPI;
     aiAPI: AiAPI;
     formAssistantAPI: FormAssistantAPI;
+    webAuditAPI: WebAuditAPI;
     windowAPI: WindowAPI;
   }
 }

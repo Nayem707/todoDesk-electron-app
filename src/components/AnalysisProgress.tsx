@@ -2,21 +2,30 @@ import { Check, Loader2 } from "lucide-react";
 import type { FormAnalysisStep } from "../types/formAssistant";
 import { cn } from "../utils/cn";
 
-const STEPS: { id: FormAnalysisStep; label: string }[] = [
+const FORM_STEPS: { id: FormAnalysisStep; label: string }[] = [
   { id: "opening", label: "Opening website" },
   { id: "loading", label: "Loading page" },
   { id: "detecting", label: "Detecting form fields" },
   { id: "mapping", label: "Mapping fields" },
 ];
 
-export function AnalysisProgress({ step }: { step: FormAnalysisStep | null }) {
-  const activeIndex = step ? STEPS.findIndex((item) => item.id === step) : 0;
+interface AnalysisProgressProps {
+  step: string | null;
+  steps?: { id: string; label: string }[];
+  title?: string;
+}
+
+export function AnalysisProgress({ step, steps = FORM_STEPS, title = "Analyzing website…" }: AnalysisProgressProps) {
+  const activeIndex = step ? Math.max(0, steps.findIndex((item) => item.id === step)) : 0;
 
   return (
-    <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-5 shadow-card dark:shadow-card-dark">
-      <p className="text-sm font-semibold">Analyzing website…</p>
+    <section
+      aria-live="polite"
+      className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-5 shadow-card dark:shadow-card-dark"
+    >
+      <p className="text-sm font-semibold">{title}</p>
       <ol className="mt-3 space-y-2">
-        {STEPS.map((item, index) => {
+        {steps.map((item, index) => {
           const done = index < activeIndex;
           const active = index === activeIndex;
           return (

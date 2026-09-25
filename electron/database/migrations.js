@@ -189,6 +189,35 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 7,
+    name: "create-web-audits",
+    up(db) {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS web_audits (
+          id TEXT PRIMARY KEY,
+          url TEXT NOT NULL,
+          final_url TEXT,
+          title TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL
+            CHECK (status IN ('completed', 'failed')),
+          error_code TEXT,
+          error_message TEXT,
+          overall_score INTEGER,
+          critical_count INTEGER NOT NULL DEFAULT 0,
+          warning_count INTEGER NOT NULL DEFAULT 0,
+          report TEXT,
+          duration_ms INTEGER,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_web_audits_created
+          ON web_audits(created_at);
+      `);
+    },
+  },
 ];
 
 /**

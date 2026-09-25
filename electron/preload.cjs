@@ -84,6 +84,19 @@ contextBridge.exposeInMainWorld("formAssistantAPI", {
   },
 });
 
+contextBridge.exposeInMainWorld("webAuditAPI", {
+  start: (url, requestId) => invoke("webAudit:start", url, requestId),
+  cancel: (requestId) => invoke("webAudit:cancel", requestId),
+  getHistory: () => invoke("webAudit:getHistory"),
+  getAudit: (id) => invoke("webAudit:get", id),
+  deleteAudit: (id) => invoke("webAudit:delete", id),
+  onProgress: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("webAudit:progress", listener);
+    return () => ipcRenderer.removeListener("webAudit:progress", listener);
+  },
+});
+
 contextBridge.exposeInMainWorld("windowAPI", {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),

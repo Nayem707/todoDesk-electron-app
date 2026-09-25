@@ -1,5 +1,5 @@
 import { chromium } from "playwright-core";
-import { FormAssistantError } from "./errors.js";
+import { WebAnalyzeError } from "./errors.js";
 
 /**
  * Uses an installed Edge/Chrome instead of a Playwright-downloaded browser, so nothing extra has
@@ -36,8 +36,8 @@ async function launchBrowser(interactive) {
       lastError = error;
     }
   }
-  console.error("[formAssistant] browser launch failed", lastError);
-  throw new FormAssistantError(
+  console.error("[webAnalyze] browser launch failed", lastError);
+  throw new WebAnalyzeError(
     "BROWSER_UNAVAILABLE",
     "Could not start a browser for analysis. Make sure Microsoft Edge or Google Chrome is installed."
   );
@@ -49,15 +49,20 @@ async function launchBrowser(interactive) {
  * Analysis sessions are headless and strip heavy resources/popups/dialogs. Interactive sessions
  * (Auto Fill) open a visible window the user reviews and submits from, so the page loads normally
  * and popups/dialogs are left to the user. Network safety rules apply to both.
+ * `loadAllResources` keeps a headless session from stripping images/fonts/media (Web Audit needs
+ * them to measure the real page).
  *
  * @param {{ assertHostAllowed: (hostname: string) => Promise<void> }} urlPolicy
- * @param {{ interactive?: boolean }} [options]
+ * @param {{ interactive?: boolean, loadAllResources?: boolean }} [options]
  */
-export async function openBrowserSession(urlPolicy, { interactive = false } = {}) {
+export async function openBrowserSession(
+  urlPolicy,
+  { interactive = false, loadAllResources = interactive } = {}
+) {
   const browser = await launchBrowser(interactive);
   let closed = false;
   let requestCount = 0;
-  /** @type {FormAssistantError | null} */
+  /** @type {WebAnalyzeError | null} */
   let navigationViolation = null;
   /** @type {import('playwright-core').Page | null} */
   let page = null;
@@ -109,15 +114,15 @@ export async function openBrowserSession(urlPolicy, { interactive = false } = {}
       return route.abort("blockedbyclient");
     }
     if (
-      !interactive &&
       !isDocument &&
-      (BLOCKED_RESOURCE_TYPES.has(request.resourceType()) || requestCount > MAX_REQUESTS)
+      ((!loadAllResources && BLOCKED_RESOURCE_TYPES.has(request.resourceType())) ||
+        (!interactive && requestCount > MAX_REQUESTS))
     ) {
       return route.abort("blockedbyclient");
     }
     if (!(await hostAllowed(url.hostname))) {
       if (isDocument) {
-        navigationViolation = new FormAssistantError(
+        navigationViolation = new WebAnalyzeError(
           "UNSUPPORTED_URL",
           "The website redirected to a local or private network address, so it was not analyzed."
         );
@@ -147,9 +152,9 @@ export async function openBrowserSession(urlPolicy, { interactive = false } = {}
   /**
    * Navigates and waits (bounded) for the page and any client-rendered form to settle.
    * @param {string} url
-   * @param {{ navigationTimeoutMs: number, settleTimeoutMs: number }} timeouts
+   * @param {{ navigationTimeoutMs: number, settleTimeoutMs: number, waitForFormFields?: boolean }} timeouts
    */
-  async function navigate(url, { navigationTimeoutMs, settleTimeoutMs }) {
+  async function navigate(url, { navigationTimeoutMs, settleTimeoutMs, waitForFormFields = true }) {
     let response;
     try {
       response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: navigationTimeoutMs });
@@ -169,12 +174,12 @@ export async function openBrowserSession(urlPolicy, { interactive = false } = {}
       chain.push(request.url());
     }
     if (chain.length - 1 > MAX_REDIRECTS) {
-      throw new FormAssistantError("TOO_MANY_REDIRECTS", "The website redirected too many times and was not analyzed.");
+      throw new WebAnalyzeError("TOO_MANY_REDIRECTS", "The website redirected too many times and was not analyzed.");
     }
     for (const hop of chain) {
       const { hostname } = new URL(hop);
       if (!(await hostAllowed(hostname))) {
-        throw new FormAssistantError(
+        throw new WebAnalyzeError(
           "UNSUPPORTED_URL",
           "The website redirected to a local or private network address, so it was not analyzed."
         );
@@ -185,19 +190,23 @@ export async function openBrowserSession(urlPolicy, { interactive = false } = {}
     const remaining = () => Math.max(0, settleDeadline - Date.now());
     await page.waitForLoadState("load", { timeout: remaining() }).catch(() => {});
     await page.waitForLoadState("networkidle", { timeout: Math.min(remaining(), 4_000) }).catch(() => {});
-    await page
-      .waitForFunction(
-        () => document.querySelector("input:not([type=hidden]), select, textarea") !== null,
-        undefined,
-        { timeout: Math.min(remaining(), 5_000), polling: 250 }
-      )
-      .catch(() => {});
+    if (waitForFormFields) {
+      await page
+        .waitForFunction(
+          () => document.querySelector("input:not([type=hidden]), select, textarea") !== null,
+          undefined,
+          { timeout: Math.min(remaining(), 5_000), polling: 250 }
+        )
+        .catch(() => {});
+    }
     await page.waitForTimeout(Math.min(remaining(), 400));
 
     return {
       status: response?.status() ?? null,
       finalUrl: page.url(),
       redirectCount: Math.max(0, chain.length - 1),
+      headers: response?.headers() ?? {},
+      securityDetails: (await response?.securityDetails().catch(() => null)) ?? null,
     };
   }
 

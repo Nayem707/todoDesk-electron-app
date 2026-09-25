@@ -1,8 +1,8 @@
-import { openBrowserSession } from "./browserSession.js";
-import { FormAssistantError, toFormAssistantError } from "./errors.js";
+import { openBrowserSession } from "../webAnalyze/browserSession.js";
+import { FormAssistantError, toFormAssistantError } from "../webAnalyze/errors.js";
+import { strictUrlPolicy } from "../webAnalyze/urlSafety.js";
 import { extractFormFieldsInPage } from "./fieldExtractor.js";
 import { mapFields } from "./fieldMapper.js";
-import { strictUrlPolicy } from "./urlSafety.js";
 
 export const ANALYSIS_STEPS = ["opening", "loading", "detecting", "mapping"];
 
