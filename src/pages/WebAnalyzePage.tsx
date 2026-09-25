@@ -27,7 +27,7 @@ const TOOLS: { id: WebAnalyzeTool; label: string; icon: LucideIcon; description:
     id: "traceroute",
     label: "Traceroute",
     icon: Route,
-    description: "See the journey: every network stop between your computer and a website.",
+    description: "See the journey from your computer to any destination.",
     component: TraceroutePage,
   },
 ];

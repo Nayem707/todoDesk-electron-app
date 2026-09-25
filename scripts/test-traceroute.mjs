@@ -1,5 +1,5 @@
 import { spawn, execFileSync } from "child_process";
-import { buildHop, detectTraceError, parseHopLine, SLOW_HOP_MS } from "../electron/traceroute/traceParser.js";
+import { buildHop, detectTraceError, parseHopLine, HIGH_LATENCY_MS } from "../electron/traceroute/traceParser.js";
 import {
   buildTraceCommand,
   normalizeTraceTarget,
@@ -106,7 +106,13 @@ console.log("\nHop normalization");
   check("lost probes are counted", second?.lostProbes === 1 && second.status === "ok");
   check("private address is detected", first?.isPrivate === true && fourth?.isPrivate === false);
   check("silent hop is a timeout", third?.status === "timeout" && third.latency === null && third.ip === null);
-  check(`average ≥ ${SLOW_HOP_MS} ms is slow`, fourth?.status === "slow" && fourth.latency?.avg === 201.7, String(fourth?.latency?.avg));
+  check(
+    `average ≥ ${HIGH_LATENCY_MS} ms is flagged, but status stays 'ok'`,
+    fourth?.status === "ok" && fourth.highLatency === true && fourth.latency?.avg === 201.7,
+    `${fourth?.status} ${fourth?.highLatency} ${fourth?.latency?.avg}`
+  );
+  check("fast hop isn't flagged", first?.highLatency === false && third?.highLatency === false);
+  check("every probe value is kept", fourth?.probes.join(",") === "210,190,205");
   check("hop matching the target is the destination", fifth?.status === "destination");
   const linuxLast = buildHop(hopsOf(LINUX_OUTPUT, "linux")[3], "93.184.216.34");
   check("destination wins over an '!H' annotation", linuxLast.status === "destination");
@@ -161,7 +167,7 @@ console.log("\nResolution");
     resolveTraceTarget({ host: "nope.test", isIp: false }, { lookup: async () => { throw Object.assign(new Error("x"), { code: "ENOTFOUND" }); } }),
     "DNS_FAILED"
   );
-  check("lookup failure → DNS_FAILED with friendly text", dnsFail.ok && /could not be resolved/.test(dnsFail.detail), dnsFail.detail);
+  check("lookup failure → DNS_FAILED with friendly text", dnsFail.ok && /couldn't resolve the destination domain/.test(dnsFail.detail), dnsFail.detail);
   const privateHost = await expectError(
     resolveTraceTarget({ host: "sneaky.test", isIp: false }, { lookup: async () => [{ address: "10.0.0.5", family: 4 }] }),
     "UNSUPPORTED_URL"
@@ -246,6 +252,9 @@ const baseOptions = (tool, extra = {}) => ({
   check("hostname update is streamed", hopEvents.some((event) => event.hop.number === 2 && event.hop.hostname === "core1.isp.test"));
   check("raw output is kept", result.rawOutput.includes("Trace complete."));
   check("summary fields are present", result.destination === "example.test" && result.resolvedIp === FAKE_TARGET && result.durationMs > 0);
+  check("counts: 3 answered, 1 timed out", result.successfulHops === 3 && result.timeoutHops === 1, `${result.successfulHops}/${result.timeoutHops}`);
+  check("destination latency is the destination hop's average", result.destinationLatencyMs === 11.7, String(result.destinationLatencyMs));
+  check("max latency names the slowest reply and its hop", result.maxLatency?.ms === 12 && result.maxLatency?.hop === 4, JSON.stringify(result.maxLatency));
 }
 
 {
@@ -331,6 +340,24 @@ const baseOptions = (tool, extra = {}) => ({
   check("unreachable report → outcome unreachable", unreachable.outcome === "unreachable" && !unreachable.reached);
   const invalid = await expectError(runTraceroute("not a domain", baseOptions(fakeTool([]))), "INVALID_URL");
   check("invalid input never spawns", invalid.ok, invalid.detail);
+}
+
+{
+  const tool = fakeTool([
+    `traceroute to ${FAKE_TARGET} (${FAKE_TARGET}), 30 hops max, 60 byte packets`,
+    " 1  192.168.1.1  0.412 ms  0.388 ms  0.371 ms",
+    " 2  * * *",
+    " 3  10.1.1.1  8.1 ms 10.1.1.2  9.1 ms  8.9 ms",
+    ` 4  ${FAKE_TARGET}  30.1 ms  30.4 ms  29.9 ms`,
+  ]);
+  let outcome;
+  try {
+    const result = await runTraceroute("example.test", { ...baseOptions(tool), platform: "linux" });
+    outcome = `${result.outcome} ${result.hops.map((hop) => `${hop.number}:${hop.status}`).join(" ")}`;
+  } catch (error) {
+    outcome = `ERROR ${error.code} ${error.message}`;
+  }
+  check("linux-format output runs end to end", outcome === "reached 1:ok 2:timeout 3:ok 4:destination", outcome);
 }
 
 console.log("\nService");

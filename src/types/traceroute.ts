@@ -1,4 +1,7 @@
-export type TraceHopStatus = "ok" | "slow" | "timeout" | "destination" | "unreachable";
+export type TraceHopStatus = "ok" | "timeout" | "destination" | "unreachable";
+
+/** Mirrors HIGH_LATENCY_MS in electron/traceroute/traceParser.js. */
+export const HIGH_LATENCY_MS = 150;
 
 export interface TraceHop {
   number: number;
@@ -12,6 +15,8 @@ export interface TraceHop {
   latency: { min: number; avg: number; max: number } | null;
   lostProbes: number;
   status: TraceHopStatus;
+  /** Average ≥ HIGH_LATENCY_MS. Informational; doesn't affect status. */
+  highLatency: boolean;
   isPrivate: boolean;
   raw: string;
 }
@@ -27,6 +32,13 @@ export interface TraceResult {
   maxHops: number;
   hops: TraceHop[];
   totalHops: number;
+  /** Hops that answered at least one probe, including the destination. */
+  successfulHops: number;
+  timeoutHops: number;
+  /** Average round trip to the destination; null when it wasn't reached. */
+  destinationLatencyMs: number | null;
+  /** Slowest single reply in the trace. */
+  maxLatency: { ms: number; hop: number } | null;
   reached: boolean;
   outcome: TraceOutcome;
   durationMs: number;
