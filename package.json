@@ -2,15 +2,15 @@
   "name": "tododesk",
   "version": "1.1.0",
   "description": "A modern desktop todo application",
-  "author": "TodoDesk",
+  "author": "Nayem",
   "license": "MIT",
   "main": "electron/main.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev": "node api.js && concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:renderer": "vite",
     "dev:electron": "node scripts/dev-electron.mjs",
-    "build": "tsc --noEmit && vite build",
+    "build": "node api.js && tsc --noEmit && vite build",
     "test:db": "node scripts/smoke-db.mjs",
     "test:forms": "node scripts/test-form-assistant.mjs",
     "test:audit": "node scripts/test-web-audit.mjs",
@@ -55,7 +55,7 @@
   "build": {
     "appId": "com.tododesk.app",
     "productName": "TodoDesk",
-    "copyright": "Copyright © 2026 TodoDesk",
+    "copyright": "Copyright \u00a9 2026 TodoDesk",
     "directories": {
       "output": "release"
     },
