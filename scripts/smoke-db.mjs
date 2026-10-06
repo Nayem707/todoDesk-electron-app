@@ -90,7 +90,7 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3,4,5,6,7") {
+if (versions.join(",") !== "1,2,3,4,5,6,7,8") {
   throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
 }
 
@@ -280,6 +280,13 @@ try {
 } catch (error) {
   if (String(error.message || error).includes("Invalid web audit status was allowed")) {
     throw error;
+  }
+}
+
+for (const table of ["quizzes", "quiz_questions", "quiz_attempts", "quiz_answers", "quiz_performance", "ai_configuration"]) {
+  const ready = existingUser.exec(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = '${table}'`)[0];
+  if (!ready) {
+    throw new Error(`Quiz table ${table} was not created for existing users`);
   }
 }
 

@@ -20,6 +20,23 @@ import type {
 } from "./formAssistant";
 import type { MarkdownDocument } from "./markdown";
 import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
+import type {
+  OllamaModel,
+  PerformanceAnalysis,
+  QuizActiveResponse,
+  QuizAiConfig,
+  QuizAiStatus,
+  QuizAttempt,
+  QuizConfigInput,
+  QuizGenerateProgress,
+  QuizGenerateResponse,
+  QuizHistoryItem,
+  QuizSaveAnswerResponse,
+  QuizStartResponse,
+  QuizStats,
+  QuizSubmitReason,
+  QuizSummary,
+} from "./quiz";
 import type { TraceProgressEvent, TraceResponse } from "./traceroute";
 import type { WebAudit, WebAuditProgressEvent, WebAuditResult, WebAuditSummary } from "./webAudit";
 
@@ -113,6 +130,40 @@ export interface TracerouteAPI {
   onProgress: (callback: (event: TraceProgressEvent) => void) => () => void;
 }
 
+export interface QuizAiAPI {
+  getConfig: () => Promise<IpcResult<QuizAiConfig>>;
+  saveConfig: (patch: Partial<QuizAiConfig>) => Promise<IpcResult<QuizAiConfig>>;
+  getModels: (baseUrl?: string) => Promise<IpcResult<OllamaModel[]>>;
+  checkConnection: (input?: Partial<QuizAiConfig>) => Promise<IpcResult<QuizAiStatus>>;
+  analyzePerformance: (attemptId: string, force?: boolean) => Promise<IpcResult<PerformanceAnalysis>>;
+}
+
+export interface QuizAPI {
+  generate: (config: QuizConfigInput, requestId: string) => Promise<IpcResult<QuizGenerateResponse>>;
+  cancelGenerate: (requestId: string) => Promise<IpcResult<{ cancelled: boolean }>>;
+  onGenerateProgress: (callback: (event: QuizGenerateProgress) => void) => () => void;
+  list: () => Promise<IpcResult<QuizSummary[]>>;
+  deleteQuiz: (quizId: string) => Promise<IpcResult<{ id: string }>>;
+  start: (quizId: string, options?: { replaceActive?: boolean }) => Promise<IpcResult<QuizStartResponse>>;
+  getActive: () => Promise<IpcResult<QuizActiveResponse>>;
+  getById: (attemptId: string) => Promise<IpcResult<QuizAttempt>>;
+  saveAnswer: (
+    attemptId: string,
+    questionId: string,
+    input: { selected?: string[]; marked?: boolean }
+  ) => Promise<IpcResult<QuizSaveAnswerResponse>>;
+  navigate: (attemptId: string, toIndex: number) => Promise<IpcResult<QuizAttempt>>;
+  advance: (attemptId: string, fromIndex: number, reason: QuizSubmitReason) => Promise<IpcResult<QuizAttempt>>;
+  submit: (attemptId: string, reason: QuizSubmitReason) => Promise<IpcResult<QuizAttempt>>;
+  pause: (attemptId: string) => Promise<IpcResult<{ paused: boolean }>>;
+  resume: (attemptId: string) => Promise<IpcResult<QuizAttempt>>;
+  discard: (attemptId: string) => Promise<IpcResult<{ id: string }>>;
+  deleteAttempt: (attemptId: string) => Promise<IpcResult<{ id: string }>>;
+  history: () => Promise<IpcResult<QuizHistoryItem[]>>;
+  stats: () => Promise<IpcResult<QuizStats>>;
+  ai: QuizAiAPI;
+}
+
 export interface WindowAPI {
   minimize: () => void;
   maximize: () => void;
@@ -131,6 +182,7 @@ declare global {
     formAssistantAPI: FormAssistantAPI;
     webAuditAPI: WebAuditAPI;
     tracerouteAPI: TracerouteAPI;
+    quizAPI: QuizAPI;
     windowAPI: WindowAPI;
   }
 }

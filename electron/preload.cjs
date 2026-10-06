@@ -107,6 +107,38 @@ contextBridge.exposeInMainWorld("tracerouteAPI", {
   },
 });
 
+contextBridge.exposeInMainWorld("quizAPI", {
+  generate: (config, requestId) => invoke("quiz:generate", config, requestId),
+  cancelGenerate: (requestId) => invoke("quiz:cancelGenerate", requestId),
+  onGenerateProgress: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("quiz:generateProgress", listener);
+    return () => ipcRenderer.removeListener("quiz:generateProgress", listener);
+  },
+  list: () => invoke("quiz:list"),
+  deleteQuiz: (quizId) => invoke("quiz:delete", quizId),
+  start: (quizId, options) => invoke("quiz:start", quizId, options),
+  getActive: () => invoke("quiz:getActive"),
+  getById: (attemptId) => invoke("quiz:getById", attemptId),
+  saveAnswer: (attemptId, questionId, input) => invoke("quiz:saveAnswer", attemptId, questionId, input),
+  navigate: (attemptId, toIndex) => invoke("quiz:navigate", attemptId, toIndex),
+  advance: (attemptId, fromIndex, reason) => invoke("quiz:advance", attemptId, fromIndex, reason),
+  submit: (attemptId, reason) => invoke("quiz:submit", attemptId, reason),
+  pause: (attemptId) => invoke("quiz:pause", attemptId),
+  resume: (attemptId) => invoke("quiz:resume", attemptId),
+  discard: (attemptId) => invoke("quiz:discard", attemptId),
+  deleteAttempt: (attemptId) => invoke("quiz:deleteAttempt", attemptId),
+  history: () => invoke("quiz:history"),
+  stats: () => invoke("quiz:stats"),
+  ai: {
+    getConfig: () => invoke("quizAi:getConfig"),
+    saveConfig: (patch) => invoke("quizAi:saveConfig", patch),
+    getModels: (baseUrl) => invoke("quizAi:getModels", baseUrl),
+    checkConnection: (input) => invoke("quizAi:checkConnection", input),
+    analyzePerformance: (attemptId, force) => invoke("quizAi:analyzePerformance", attemptId, force),
+  },
+});
+
 contextBridge.exposeInMainWorld("windowAPI", {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),

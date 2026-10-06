@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   FileText,
+  GraduationCap,
   ListTodo,
   Plus,
   ScanSearch,
@@ -24,6 +25,7 @@ const NAV: { id: AppView; label: string; icon: typeof ListTodo }[] = [
   { id: "markdown", label: "Markdown", icon: FileText },
   { id: "assistant", label: "Assistant", icon: Sparkles },
   { id: "webAnalyze", label: "Web Analyze", icon: ScanSearch },
+  { id: "quiz", label: "Quiz", icon: GraduationCap },
 ];
 
 export function Sidebar({ view, onViewChange, onCreate }: SidebarProps) {

@@ -218,6 +218,131 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 8,
+    name: "create-quiz-system",
+    up(db) {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS quizzes (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          topic TEXT NOT NULL,
+          difficulty TEXT NOT NULL
+            CHECK (difficulty IN ('easy', 'medium', 'hard', 'expert')),
+          question_types TEXT NOT NULL DEFAULT '[]',
+          question_count INTEGER NOT NULL,
+          time_mode TEXT NOT NULL
+            CHECK (time_mode IN ('none', 'total', 'per_question')),
+          total_seconds INTEGER,
+          per_question_seconds INTEGER,
+          focus TEXT NOT NULL DEFAULT '',
+          model TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL
+        );
+      `);
+      db.run(`
+        CREATE TABLE IF NOT EXISTS quiz_questions (
+          id TEXT PRIMARY KEY,
+          quiz_id TEXT NOT NULL,
+          position INTEGER NOT NULL,
+          type TEXT NOT NULL
+            CHECK (type IN ('single_choice', 'multiple_choice', 'true_false', 'coding')),
+          question TEXT NOT NULL,
+          code TEXT,
+          options TEXT NOT NULL,
+          correct_answers TEXT NOT NULL,
+          explanation TEXT NOT NULL DEFAULT '',
+          concept TEXT NOT NULL DEFAULT '',
+          difficulty TEXT NOT NULL,
+          estimated_seconds INTEGER NOT NULL,
+          FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+        );
+      `);
+      db.run(`
+        CREATE TABLE IF NOT EXISTS quiz_attempts (
+          id TEXT PRIMARY KEY,
+          quiz_id TEXT NOT NULL,
+          status TEXT NOT NULL
+            CHECK (status IN ('in_progress', 'completed')),
+          time_mode TEXT NOT NULL
+            CHECK (time_mode IN ('none', 'total', 'per_question')),
+          total_seconds INTEGER,
+          per_question_seconds INTEGER,
+          started_at INTEGER NOT NULL,
+          deadline_at INTEGER,
+          current_index INTEGER NOT NULL DEFAULT 0,
+          active_since INTEGER,
+          submitted_at INTEGER,
+          submit_reason TEXT
+            CHECK (submit_reason IS NULL OR submit_reason IN ('manual', 'timeout')),
+          score INTEGER,
+          total INTEGER,
+          correct_count INTEGER,
+          wrong_count INTEGER,
+          skipped_count INTEGER,
+          accuracy INTEGER,
+          time_used_ms INTEGER,
+          time_remaining_ms INTEGER,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+        );
+      `);
+      db.run(`
+        CREATE TABLE IF NOT EXISTS quiz_answers (
+          attempt_id TEXT NOT NULL,
+          question_id TEXT NOT NULL,
+          position INTEGER NOT NULL,
+          selected TEXT NOT NULL DEFAULT '[]',
+          marked INTEGER NOT NULL DEFAULT 0,
+          is_correct INTEGER,
+          time_spent_ms INTEGER NOT NULL DEFAULT 0,
+          started_at INTEGER,
+          ended_at INTEGER,
+          locked INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (attempt_id, question_id),
+          FOREIGN KEY (attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
+          FOREIGN KEY (question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE
+        );
+      `);
+      db.run(`
+        CREATE TABLE IF NOT EXISTS quiz_performance (
+          attempt_id TEXT PRIMARY KEY,
+          analysis TEXT NOT NULL,
+          model TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE
+        );
+      `);
+      db.run(`
+        CREATE TABLE IF NOT EXISTS ai_configuration (
+          id TEXT PRIMARY KEY,
+          provider TEXT NOT NULL DEFAULT 'ollama'
+            CHECK (provider IN ('ollama')),
+          base_url TEXT NOT NULL,
+          model TEXT NOT NULL DEFAULT '',
+          temperature REAL NOT NULL DEFAULT 0.4,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_quiz_questions_quiz
+          ON quiz_questions(quiz_id, position);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_quiz_attempts_status
+          ON quiz_attempts(status);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_quiz_attempts_quiz
+          ON quiz_attempts(quiz_id);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_quiz_answers_attempt
+          ON quiz_answers(attempt_id, position);
+      `);
+    },
+  },
 ];
 
 /**

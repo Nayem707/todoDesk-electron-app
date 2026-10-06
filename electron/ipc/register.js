@@ -7,6 +7,7 @@ import * as aiService from "../ai/aiService.js";
 import * as formAssistantService from "../formAssistant/formAssistantService.js";
 import * as webAuditService from "../webAudit/webAuditService.js";
 import * as tracerouteService from "../traceroute/tracerouteService.js";
+import * as quizService from "../quiz/quizService.js";
 import { writeClipboardInternal } from "../clipboardWatcher.js";
 
 function handle(channel, handler) {
@@ -155,6 +156,7 @@ export function registerIpcHandlers(getMainWindow) {
   registerFormAssistantHandlers(handleTrusted);
   registerWebAuditHandlers(handleTrusted);
   registerTracerouteHandlers(handleTrusted);
+  registerQuizHandlers(handleTrusted);
 }
 
 /** Handlers that drive a real browser only accept requests from the app's own window. */
@@ -228,6 +230,62 @@ function registerTracerouteHandlers(handleTrusted) {
       }
     }
   });
+}
+
+function registerQuizHandlers(handleTrusted) {
+  handleTrusted("quizAi:getConfig", () => quizService.getAiConfig());
+  handleTrusted("quizAi:saveConfig", (_event, patch) => quizService.saveAiConfig(patch));
+  handleTrusted("quizAi:getModels", (_event, baseUrl) => quizService.getModels(baseUrl));
+  handleTrusted("quizAi:checkConnection", (_event, input) => quizService.checkConnection(input));
+  handleTrusted("quizAi:analyzePerformance", (_event, attemptId, force) =>
+    quizService.analyzePerformance(attemptId, { force: force === true })
+  );
+
+  handleTrusted("quiz:generate", async (event, config, requestId) => {
+    if (!isValidRequestId(requestId)) {
+      throw new Error("Invalid request.");
+    }
+    const cancelOnClose = () => quizService.cancelGeneration(requestId);
+    event.sender.once("destroyed", cancelOnClose);
+    try {
+      return await quizService.generateQuiz(config, {
+        requestId,
+        emit: (payload) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("quiz:generateProgress", payload);
+          }
+        },
+      });
+    } finally {
+      if (!event.sender.isDestroyed()) {
+        event.sender.removeListener("destroyed", cancelOnClose);
+      }
+    }
+  });
+  handleTrusted("quiz:cancelGenerate", (_event, requestId) =>
+    quizService.cancelGeneration(typeof requestId === "string" ? requestId : null)
+  );
+  handleTrusted("quiz:list", () => quizService.listQuizzes());
+  handleTrusted("quiz:delete", (_event, quizId) => quizService.deleteQuiz(quizId));
+  handleTrusted("quiz:start", (_event, quizId, options) => quizService.startQuiz(quizId, options));
+  handleTrusted("quiz:getActive", () => quizService.getActiveAttempt());
+  handleTrusted("quiz:getById", (_event, attemptId) => quizService.getAttempt(attemptId));
+  handleTrusted("quiz:saveAnswer", (_event, attemptId, questionId, input) =>
+    quizService.saveAnswer(attemptId, questionId, input)
+  );
+  handleTrusted("quiz:navigate", (_event, attemptId, toIndex) => quizService.navigate(attemptId, toIndex));
+  handleTrusted("quiz:advance", (_event, attemptId, fromIndex, reason) =>
+    quizService.advance(attemptId, fromIndex, reason === "timeout" ? "timeout" : "manual")
+  );
+  handleTrusted("quiz:submit", (_event, attemptId, reason) =>
+    quizService.submitQuiz(attemptId, reason === "timeout" ? "timeout" : "manual")
+  );
+  handleTrusted("quiz:pause", (_event, attemptId) => quizService.pauseAttempt(attemptId));
+  handleTrusted("quiz:resume", (_event, attemptId) => quizService.resumeAttempt(attemptId));
+  handleTrusted("quiz:discard", (_event, attemptId) => quizService.discardAttempt(attemptId));
+  handleTrusted("quiz:deleteAttempt", (_event, attemptId) => quizService.deleteAttempt(attemptId));
+  handleTrusted("quiz:history", () => quizService.getHistory());
+  handleTrusted("quiz:stats", () => quizService.getStats());
 }
 
 function registerFormAssistantHandlers(handleTrusted) {

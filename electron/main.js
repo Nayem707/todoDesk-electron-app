@@ -8,6 +8,7 @@ import { loadWindowState, saveWindowState } from "./windowState.js";
 import { shutdown as shutdownFormAssistant } from "./formAssistant/formAssistantService.js";
 import { shutdown as shutdownWebAudit } from "./webAudit/webAuditService.js";
 import { shutdown as shutdownTraceroute } from "./traceroute/tracerouteService.js";
+import { shutdown as shutdownQuiz } from "./quiz/quizService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -135,6 +136,7 @@ app.on("before-quit", () => {
   void shutdownFormAssistant();
   shutdownWebAudit();
   shutdownTraceroute();
+  shutdownQuiz();
   if (mainWindow) {
     saveWindowState(mainWindow);
   }

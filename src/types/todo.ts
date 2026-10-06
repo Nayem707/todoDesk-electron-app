@@ -14,6 +14,7 @@ export type AppView =
   | "markdown"
   | "assistant"
   | "webAnalyze"
+  | "quiz"
   | "settings";
 
 export type FilterOption =

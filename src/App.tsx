@@ -4,6 +4,7 @@ import { AppShell } from "./layouts/AppShell";
 import { AssistantPage } from "./pages/AssistantPage";
 import { ClipboardPage } from "./pages/ClipboardPage";
 import { MarkdownPage } from "./pages/MarkdownPage";
+import { QuizPage } from "./pages/QuizPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodoPage } from "./pages/TodoPage";
 import { WebAnalyzePage } from "./pages/WebAnalyzePage";
@@ -74,6 +75,9 @@ function AppFrame() {
     }
     if (view === "webAnalyze") {
       return <WebAnalyzePage />;
+    }
+    if (view === "quiz") {
+      return <QuizPage />;
     }
     return (
       <TodoPage

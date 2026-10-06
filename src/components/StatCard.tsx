@@ -2,7 +2,7 @@ import { cn } from "../utils/cn";
 
 interface StatCardProps {
   label: string;
-  value: number;
+  value: number | string;
   hint?: string;
   tone?: "default" | "success" | "warning" | "danger" | "accent";
 }

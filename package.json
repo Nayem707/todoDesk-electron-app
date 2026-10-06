@@ -15,6 +15,7 @@
     "test:forms": "node scripts/test-form-assistant.mjs",
     "test:audit": "node scripts/test-web-audit.mjs",
     "test:traceroute": "node scripts/test-traceroute.mjs",
+    "test:quiz": "node scripts/test-quiz.mjs",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
