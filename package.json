@@ -2,7 +2,7 @@
   "name": "tododesk",
   "version": "1.1.0",
   "description": "A modern desktop todo application",
-  "author": "TodoDesk",
+  "author": "Nayem",
   "license": "MIT",
   "main": "electron/main.js",
   "type": "module",
