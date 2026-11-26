@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
 import * as todoRepository from "../database/todoRepository.js";
+import * as projectRepository from "../database/projectRepository.js";
 import * as settingsRepository from "../database/settingsRepository.js";
 import * as clipboardRepository from "../database/clipboardRepository.js";
 import * as markdownRepository from "../database/markdownRepository.js";
@@ -24,7 +25,38 @@ function handle(channel, handler) {
 }
 
 export function registerIpcHandlers(getMainWindow) {
+  handle("projects:getAll", () => projectRepository.getAllProjects());
+  handle("projects:getById", (id) => {
+    const project = projectRepository.getProjectById(id);
+    if (!project) {
+      throw new Error("Project not found.");
+    }
+    return project;
+  });
+  handle("projects:create", (input) => projectRepository.createProject(input));
+  handle("projects:update", (id, input) => projectRepository.updateProject(id, input));
+  handle("projects:delete", (id) => projectRepository.deleteProject(id));
+
+  handle("taskLists:getByProject", (projectId) =>
+    projectRepository.getListsByProject(projectId)
+  );
+  handle("taskLists:getById", (id) => {
+    const list = projectRepository.getListById(id);
+    if (!list) {
+      throw new Error("Task list not found.");
+    }
+    return list;
+  });
+  handle("taskLists:create", (projectId, input) =>
+    projectRepository.createTaskList(projectId, input)
+  );
+  handle("taskLists:update", (id, input) =>
+    projectRepository.updateTaskList(id, input)
+  );
+  handle("taskLists:delete", (id) => projectRepository.deleteTaskList(id));
+
   handle("todos:getAll", () => todoRepository.getAllTodos());
+  handle("todos:getByList", (listId) => todoRepository.getTodosByListId(listId));
   handle("todos:getById", (id) => {
     const todo = todoRepository.getTodoById(id);
     if (!todo) {
@@ -39,6 +71,9 @@ export function registerIpcHandlers(getMainWindow) {
   handle("todos:clearCompleted", () => todoRepository.clearCompletedTodos());
   handle("todos:clearAll", () => todoRepository.clearAllTodos());
   handle("todos:getStats", () => todoRepository.getTodoStats());
+  handle("todos:getStatsByList", (listId) =>
+    todoRepository.getTodoStatsByListId(listId)
+  );
 
   handle("settings:get", () => settingsRepository.getSettings());
   handle("settings:update", (patch) => settingsRepository.updateSettings(patch));

@@ -19,7 +19,17 @@ import type {
   SemanticField,
 } from "./formAssistant";
 import type { MarkdownDocument } from "./markdown";
-import type { AppSettings, DashboardStats, IpcResult, Todo, TodoInput } from "./todo";
+import type {
+  AppSettings,
+  DashboardStats,
+  IpcResult,
+  Project,
+  ProjectInput,
+  TaskList,
+  TaskListInput,
+  Todo,
+  TodoInput,
+} from "./todo";
 import type {
   OllamaModel,
   PerformanceAnalysis,
@@ -41,7 +51,24 @@ import type { TraceProgressEvent, TraceResponse } from "./traceroute";
 import type { WebAudit, WebAuditProgressEvent, WebAuditResult, WebAuditSummary } from "./webAudit";
 
 export interface TodoAPI {
+  getProjects: () => Promise<IpcResult<Project[]>>;
+  getProject: (id: string) => Promise<IpcResult<Project>>;
+  createProject: (input: ProjectInput) => Promise<IpcResult<Project>>;
+  updateProject: (id: string, input: Partial<ProjectInput>) => Promise<IpcResult<Project>>;
+  deleteProject: (id: string) => Promise<IpcResult<{ id: string }>>;
+  getTaskLists: (projectId: string) => Promise<IpcResult<TaskList[]>>;
+  getTaskList: (id: string) => Promise<IpcResult<TaskList>>;
+  createTaskList: (
+    projectId: string,
+    input: TaskListInput
+  ) => Promise<IpcResult<TaskList>>;
+  updateTaskList: (
+    id: string,
+    input: Partial<TaskListInput>
+  ) => Promise<IpcResult<TaskList>>;
+  deleteTaskList: (id: string) => Promise<IpcResult<{ id: string }>>;
   getTodos: () => Promise<IpcResult<Todo[]>>;
+  getTodosByList: (listId: string) => Promise<IpcResult<Todo[]>>;
   getTodo: (id: string) => Promise<IpcResult<Todo>>;
   createTodo: (todo: TodoInput) => Promise<IpcResult<Todo>>;
   updateTodo: (id: string, todo: Partial<TodoInput>) => Promise<IpcResult<Todo>>;
@@ -50,6 +77,7 @@ export interface TodoAPI {
   clearCompleted: () => Promise<IpcResult<{ cleared: boolean }>>;
   clearAll: () => Promise<IpcResult<{ cleared: boolean }>>;
   getStats: () => Promise<IpcResult<DashboardStats>>;
+  getStatsByList: (listId: string) => Promise<IpcResult<DashboardStats>>;
 }
 
 export interface SettingsAPI {

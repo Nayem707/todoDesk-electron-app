@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { getDb, schedulePersist } from "./connection.js";
+import { getListById } from "./projectRepository.js";
 import { validateTodoInput } from "./todoValidation.js";
 
 function nowIso() {
@@ -18,6 +19,7 @@ function parseTags(raw) {
 function mapRow(row) {
   return {
     id: row.id,
+    listId: row.listId,
     title: row.title,
     description: row.description ?? "",
     completed: Boolean(row.completed),
@@ -50,8 +52,72 @@ function run(sql, params = []) {
   schedulePersist();
 }
 
+function requireListId(listId) {
+  const id = typeof listId === "string" ? listId.trim() : "";
+  if (!id) {
+    throw new Error("Task list is required.");
+  }
+  const list = getListById(id);
+  if (!list) {
+    throw new Error("Task list not found.");
+  }
+  return id;
+}
+
+function buildStats(whereSql = "", params = []) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  const todayStart = startOfToday.toISOString();
+  const todayEnd = endOfToday.toISOString();
+  const now = new Date().toISOString();
+  const clause = whereSql ? `WHERE ${whereSql}` : "";
+  const and = whereSql ? `AND ${whereSql}` : "";
+
+  const scalar = (sql, sqlParams = []) => {
+    const row = queryOne(sql, sqlParams);
+    return Number(row?.count ?? 0);
+  };
+
+  return {
+    total: scalar(`SELECT COUNT(*) AS count FROM todos ${clause}`, params),
+    completed: scalar(
+      `SELECT COUNT(*) AS count FROM todos WHERE completed = 1 ${and}`,
+      params
+    ),
+    pending: scalar(
+      `SELECT COUNT(*) AS count FROM todos WHERE completed = 0 ${and}`,
+      params
+    ),
+    overdue: scalar(
+      `SELECT COUNT(*) AS count FROM todos
+       WHERE completed = 0 AND dueDate IS NOT NULL AND dueDate < ? ${and}`,
+      [now, ...params]
+    ),
+    highPriority: scalar(
+      `SELECT COUNT(*) AS count FROM todos
+       WHERE completed = 0 AND priority = 'high' ${and}`,
+      params
+    ),
+    today: scalar(
+      `SELECT COUNT(*) AS count FROM todos
+       WHERE dueDate IS NOT NULL AND dueDate >= ? AND dueDate <= ? ${and}`,
+      [todayStart, todayEnd, ...params]
+    ),
+  };
+}
+
 export function getAllTodos() {
   return queryAll("SELECT * FROM todos ORDER BY createdAt DESC").map(mapRow);
+}
+
+export function getTodosByListId(listId) {
+  requireListId(listId);
+  return queryAll(
+    "SELECT * FROM todos WHERE listId = ? ORDER BY createdAt DESC",
+    [listId]
+  ).map(mapRow);
 }
 
 export function getTodoById(id) {
@@ -60,10 +126,12 @@ export function getTodoById(id) {
 }
 
 export function createTodo(input) {
+  const listId = requireListId(input?.listId);
   const payload = validateTodoInput(input, { requireTitle: true });
   const timestamp = nowIso();
   const todo = {
     id: crypto.randomUUID(),
+    listId,
     title: payload.title,
     description: payload.description,
     completed: false,
@@ -76,10 +144,11 @@ export function createTodo(input) {
 
   run(
     `INSERT INTO todos
-      (id, title, description, completed, priority, dueDate, tags, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, listId, title, description, completed, priority, dueDate, tags, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       todo.id,
+      todo.listId,
       todo.title,
       todo.description,
       0,
@@ -100,6 +169,9 @@ export function updateTodo(id, input) {
     throw new Error("Todo not found.");
   }
 
+  const listId =
+    input.listId === undefined ? existing.listId : requireListId(input.listId);
+
   const payload = validateTodoInput(
     {
       title: input.title ?? existing.title,
@@ -112,24 +184,21 @@ export function updateTodo(id, input) {
     { requireTitle: true }
   );
 
-  const updated = {
-    ...existing,
-    ...payload,
-    updatedAt: nowIso(),
-  };
+  const updatedAt = nowIso();
 
   run(
     `UPDATE todos
-     SET title = ?, description = ?, completed = ?, priority = ?, dueDate = ?, tags = ?, updatedAt = ?
+     SET listId = ?, title = ?, description = ?, completed = ?, priority = ?, dueDate = ?, tags = ?, updatedAt = ?
      WHERE id = ?`,
     [
-      updated.title,
-      updated.description,
-      updated.completed ? 1 : 0,
-      updated.priority,
-      updated.dueDate,
-      JSON.stringify(updated.tags),
-      updated.updatedAt,
+      listId,
+      payload.title,
+      payload.description,
+      payload.completed ? 1 : 0,
+      payload.priority,
+      payload.dueDate,
+      JSON.stringify(payload.tags),
+      updatedAt,
       id,
     ]
   );
@@ -165,33 +234,10 @@ export function clearAllTodos() {
 }
 
 export function getTodoStats() {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
-  const todayStart = startOfToday.toISOString();
-  const todayEnd = endOfToday.toISOString();
-  const now = new Date().toISOString();
+  return buildStats();
+}
 
-  const scalar = (sql, params = []) => {
-    const row = queryOne(sql, params);
-    return Number(row?.count ?? 0);
-  };
-
-  return {
-    total: scalar("SELECT COUNT(*) AS count FROM todos"),
-    completed: scalar("SELECT COUNT(*) AS count FROM todos WHERE completed = 1"),
-    pending: scalar("SELECT COUNT(*) AS count FROM todos WHERE completed = 0"),
-    overdue: scalar(
-      "SELECT COUNT(*) AS count FROM todos WHERE completed = 0 AND dueDate IS NOT NULL AND dueDate < ?",
-      [now]
-    ),
-    highPriority: scalar(
-      "SELECT COUNT(*) AS count FROM todos WHERE completed = 0 AND priority = 'high'"
-    ),
-    today: scalar(
-      "SELECT COUNT(*) AS count FROM todos WHERE dueDate IS NOT NULL AND dueDate >= ? AND dueDate <= ?",
-      [todayStart, todayEnd]
-    ),
-  };
+export function getTodoStatsByListId(listId) {
+  requireListId(listId);
+  return buildStats("listId = ?", [listId]);
 }

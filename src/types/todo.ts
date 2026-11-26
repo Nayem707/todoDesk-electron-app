@@ -1,12 +1,18 @@
 export type Priority = "low" | "medium" | "high";
 export type ThemePreference = "light" | "dark" | "system";
-export type TodoTab =
-  | "dashboard"
+
+export type TodoScreen = "projects" | "project" | "list";
+
+export type TodoListFilter =
+  | "overview"
   | "all"
   | "today"
   | "upcoming"
   | "completed"
   | "high";
+
+/** @deprecated Use TodoListFilter. */
+export type TodoTab = TodoListFilter;
 
 export type AppView =
   | "todo"
@@ -28,8 +34,40 @@ export type FilterOption =
 
 export type SortOption = "newest" | "oldest" | "dueDate" | "priority" | "alphabetical";
 
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  listCount: number;
+  taskCount: number;
+  completedCount: number;
+}
+
+export interface ProjectInput {
+  name: string;
+  description?: string;
+}
+
+export interface TaskList {
+  id: string;
+  projectId: string;
+  name: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  taskCount: number;
+  completedCount: number;
+}
+
+export interface TaskListInput {
+  name: string;
+}
+
 export interface Todo {
   id: string;
+  listId: string;
   title: string;
   description: string;
   completed: boolean;
@@ -41,6 +79,7 @@ export interface Todo {
 }
 
 export interface TodoInput {
+  listId?: string;
   title: string;
   description: string;
   priority: Priority;
@@ -67,4 +106,11 @@ export interface IpcResult<T> {
   ok: boolean;
   data?: T;
   error?: string;
+}
+
+export interface TodoNavState {
+  screen: TodoScreen;
+  projectId: string | null;
+  listId: string | null;
+  filter: TodoListFilter;
 }

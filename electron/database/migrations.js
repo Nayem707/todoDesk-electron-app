@@ -343,6 +343,88 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 9,
+    name: "project-based-todos",
+    up(db) {
+      // Existing flat todos are discarded by design; other modules are untouched.
+      db.run("DROP TABLE IF EXISTS todos;");
+
+      db.run(`
+        CREATE TABLE IF NOT EXISTS projects (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL
+        );
+      `);
+
+      db.run(`
+        CREATE TABLE IF NOT EXISTS task_lists (
+          id TEXT PRIMARY KEY,
+          projectId TEXT NOT NULL,
+          name TEXT NOT NULL,
+          position INTEGER NOT NULL DEFAULT 0,
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL,
+          FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE
+        );
+      `);
+
+      db.run(`
+        CREATE TABLE todos (
+          id TEXT PRIMARY KEY,
+          listId TEXT NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          completed INTEGER NOT NULL DEFAULT 0,
+          priority TEXT NOT NULL DEFAULT 'medium'
+            CHECK (priority IN ('low', 'medium', 'high')),
+          dueDate TEXT,
+          tags TEXT NOT NULL DEFAULT '[]',
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL,
+          FOREIGN KEY (listId) REFERENCES task_lists(id) ON DELETE CASCADE
+        );
+      `);
+
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_task_lists_project
+          ON task_lists(projectId, position);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_todos_listId ON todos(listId);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_todos_dueDate ON todos(dueDate);
+      `);
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_todos_createdAt ON todos(createdAt);
+      `);
+
+      const now = new Date().toISOString();
+      const projectId = "00000000-0000-4000-8000-000000000001";
+      const listId = "00000000-0000-4000-8000-000000000002";
+
+      db.run(
+        `INSERT INTO projects (id, name, description, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?)`,
+        [projectId, "Inbox", "Default project for quick tasks", now, now]
+      );
+      db.run(
+        `INSERT INTO task_lists (id, projectId, name, position, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [listId, projectId, "General", 0, now, now]
+      );
+    },
+  },
 ];
 
 /**

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Toaster } from "sonner";
+import { toast, Toaster } from "sonner";
 import { AppShell } from "./layouts/AppShell";
 import { AssistantPage } from "./pages/AssistantPage";
 import { ClipboardPage } from "./pages/ClipboardPage";
@@ -8,25 +8,29 @@ import { QuizPage } from "./pages/QuizPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodoPage } from "./pages/TodoPage";
 import { WebAnalyzePage } from "./pages/WebAnalyzePage";
+import { todoNav } from "./store/todoNav";
 import { TodoModal } from "./components/TodoModal";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { SettingsProvider, useSettings } from "./store/SettingsProvider";
 import { ClipboardProvider } from "./store/ClipboardProvider";
 import { TodoProvider, useTodos } from "./store/TodoProvider";
-import type { AppView, Todo, TodoTab } from "./types/todo";
+import type { AppView, Todo, TodoInput } from "./types/todo";
 
 function AppFrame() {
   const { resolvedTheme, settings } = useSettings();
   const { createTodo, updateTodo, deleteTodo } = useTodos();
   const [view, setView] = useState<AppView>("todo");
-  const [todoTab, setTodoTab] = useState<TodoTab>("dashboard");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Todo | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Todo | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   const openCreate = useCallback(() => {
+    if (todoNav.screen !== "list" || !todoNav.listId) {
+      toast.message("Open a task list to create a task.");
+      return;
+    }
     setEditing(null);
     setModalOpen(true);
   }, []);
@@ -81,15 +85,13 @@ function AppFrame() {
     }
     return (
       <TodoPage
-        tab={todoTab}
-        onTabChange={setTodoTab}
         searchRef={searchRef}
-        onCreate={openCreate}
-        onEdit={openEdit}
-        onDelete={requestDelete}
+        onCreateTask={openCreate}
+        onEditTask={openEdit}
+        onDeleteTask={requestDelete}
       />
     );
-  }, [openCreate, openEdit, requestDelete, todoTab, view]);
+  }, [openCreate, openEdit, requestDelete, view]);
 
   return (
     <>
@@ -100,10 +102,19 @@ function AppFrame() {
         open={modalOpen}
         todo={editing}
         onClose={() => setModalOpen(false)}
-        onSubmit={async (input) => {
-          const result = editing
-            ? await updateTodo(editing.id, input)
-            : await createTodo(input);
+        onSubmit={async (input: TodoInput) => {
+          if (editing) {
+            const result = await updateTodo(editing.id, input);
+            if (result) {
+              setModalOpen(false);
+            }
+            return;
+          }
+          if (!todoNav.listId) {
+            toast.error("Open a task list to create a task.");
+            return;
+          }
+          const result = await createTodo({ ...input, listId: todoNav.listId });
           if (result) {
             setModalOpen(false);
           }

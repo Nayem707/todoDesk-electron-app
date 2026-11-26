@@ -2,6 +2,7 @@ import { CalendarDays, Pencil, Trash2 } from "lucide-react";
 import type { Todo } from "../types/todo";
 import { cn } from "../utils/cn";
 import { formatDueDate, isOverdue } from "../utils/dates";
+import { ExpandableText } from "./ExpandableText";
 import { PriorityBadge } from "./PriorityBadge";
 
 interface TodoCardProps {
@@ -60,11 +61,7 @@ export function TodoCard({ todo, onToggle, onEdit, onDelete }: TodoCardProps) {
               </button>
             </div>
           </div>
-          {todo.description && (
-            <p className="mt-1 line-clamp-2 text-sm text-[rgb(var(--muted))]">
-              {todo.description}
-            </p>
-          )}
+          {todo.description ? <ExpandableText text={todo.description} lines={2} /> : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <PriorityBadge priority={todo.priority} />
             <span

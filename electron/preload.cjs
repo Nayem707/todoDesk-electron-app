@@ -5,7 +5,18 @@ function invoke(channel, ...args) {
 }
 
 contextBridge.exposeInMainWorld("todoAPI", {
+  getProjects: () => invoke("projects:getAll"),
+  getProject: (id) => invoke("projects:getById", id),
+  createProject: (input) => invoke("projects:create", input),
+  updateProject: (id, input) => invoke("projects:update", id, input),
+  deleteProject: (id) => invoke("projects:delete", id),
+  getTaskLists: (projectId) => invoke("taskLists:getByProject", projectId),
+  getTaskList: (id) => invoke("taskLists:getById", id),
+  createTaskList: (projectId, input) => invoke("taskLists:create", projectId, input),
+  updateTaskList: (id, input) => invoke("taskLists:update", id, input),
+  deleteTaskList: (id) => invoke("taskLists:delete", id),
   getTodos: () => invoke("todos:getAll"),
+  getTodosByList: (listId) => invoke("todos:getByList", listId),
   getTodo: (id) => invoke("todos:getById", id),
   createTodo: (todo) => invoke("todos:create", todo),
   updateTodo: (id, todo) => invoke("todos:update", id, todo),
@@ -14,6 +25,7 @@ contextBridge.exposeInMainWorld("todoAPI", {
   clearCompleted: () => invoke("todos:clearCompleted"),
   clearAll: () => invoke("todos:clearAll"),
   getStats: () => invoke("todos:getStats"),
+  getStatsByList: (listId) => invoke("todos:getStatsByList", listId),
 });
 
 contextBridge.exposeInMainWorld("settingsAPI", {

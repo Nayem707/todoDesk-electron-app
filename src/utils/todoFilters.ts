@@ -40,6 +40,9 @@ export function matchesFilter(todo: Todo, filter: FilterOption) {
 
 export function matchesView(todo: Todo, view: string) {
   switch (view) {
+    case "overview":
+    case "all":
+      return true;
     case "today":
       return isToday(todo.dueDate) && !todo.completed;
     case "upcoming":
@@ -51,6 +54,16 @@ export function matchesView(todo: Todo, view: string) {
     default:
       return true;
   }
+}
+
+export function countForView(todos: Todo[], view: string) {
+  if (view === "overview") {
+    return todos.length;
+  }
+  if (view === "all") {
+    return todos.filter((todo) => !todo.completed).length;
+  }
+  return todos.filter((todo) => matchesView(todo, view)).length;
 }
 
 export function sortTodos(todos: Todo[], sortBy: SortOption) {

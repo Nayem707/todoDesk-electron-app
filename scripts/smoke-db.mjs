@@ -90,8 +90,20 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3,4,5,6,7,8") {
+if (versions.join(",") !== "1,2,3,4,5,6,7,8,9") {
   throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
+}
+
+const inbox = scalar(migrated, "SELECT name FROM projects WHERE name = ?", ["Inbox"]);
+const general = scalar(
+  migrated,
+  `SELECT tl.name AS name FROM task_lists tl
+   INNER JOIN projects p ON p.id = tl.projectId
+   WHERE p.name = ? AND tl.name = ?`,
+  ["Inbox", "General"]
+);
+if (!inbox || inbox.name !== "Inbox" || !general || general.name !== "General") {
+  throw new Error("Migration v9 did not seed Inbox / General");
 }
 
 const later = new Date(Date.now() + 1000).toISOString();
@@ -210,9 +222,17 @@ existingUser.run(
   ["todo-1", "Keep this task", "", 0, "medium", null, "[]", now, now]
 );
 runMigrations(existingUser);
-const todoStillThere = existingUser.exec("SELECT title FROM todos")[0].values[0][0];
-if (todoStillThere !== "Keep this task") {
-  throw new Error("Clipboard migration overwrote existing todos");
+// Migration 9 intentionally resets the flat todos table into project-based schema.
+const seededInbox = scalar(existingUser, "SELECT name FROM projects WHERE name = ?", [
+  "Inbox",
+]);
+const remainingLegacyTodos = existingUser.exec("SELECT COUNT(*) AS c FROM todos")[0]
+  .values[0][0];
+if (!seededInbox || seededInbox.name !== "Inbox") {
+  throw new Error("Project migration did not seed Inbox for existing users");
+}
+if (remainingLegacyTodos !== 0) {
+  throw new Error("Legacy flat todos were not cleared by project migration");
 }
 const clipboardReady = existingUser.exec(
   "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'clipboard_items'"
