@@ -29,6 +29,7 @@ export function ProjectCard({
       entityLabel="Project"
       title={project.name}
       description={project.description}
+      descriptionLabel="Project Description:"
       progress={progress}
       progressSummary={progressSummary}
       startDate={project.startDate}

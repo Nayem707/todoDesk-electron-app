@@ -17,6 +17,7 @@ interface ScheduledCardProps {
   entityLabel: string;
   title: string;
   description: string;
+  descriptionLabel?: string;
   progress: number;
   progressSummary: string;
   startDate: string | null;
@@ -95,6 +96,7 @@ export function ScheduledCard({
   entityLabel,
   title,
   description,
+  descriptionLabel,
   progress,
   progressSummary,
   startDate,
@@ -120,24 +122,17 @@ export function ScheduledCard({
   const deadlineInfo = getProjectDeadlineInfo(deadline);
   const startDays = calendarDaysUntil(startDate);
   const startsInFuture = startDays !== null && startDays > 0;
-  const countdown =
-    status === undefined
-      ? {
-          label: startsInFuture
-            ? `Starts in ${startDays} ${startDays === 1 ? "day" : "days"}`
-            : deadlineInfo.label,
-          tone: startsInFuture
-            ? startDays <= 7
-              ? "soon"
-              : "ok"
-            : deadlineInfo.tone,
-          helper: `Please update ${entityLabel.toLowerCase()} date`,
-        }
-      : getTaskListCountdown(selectedStatus, startDays, deadlineInfo);
-  const cardDeadlineTone =
-    selectedStatus === "completed" && status !== undefined
-      ? "none"
-      : deadlineInfo.tone;
+  const countdown = {
+    label: startsInFuture
+      ? `Starts in ${startDays} ${startDays === 1 ? "day" : "days"}`
+      : deadlineInfo.label,
+    tone: startsInFuture
+      ? startDays <= 7
+        ? "soon"
+        : "ok"
+      : deadlineInfo.tone,
+    helper: `Please update ${entityLabel.toLowerCase()} date`,
+  };
   const currentStatus = statusDetails[selectedStatus];
 
   useEffect(() => {
@@ -217,9 +212,9 @@ export function ScheduledCard({
       onClick={onOpen}
       className={cn(
         "flex h-full cursor-pointer flex-col rounded-2xl border bg-[rgb(var(--surface))] p-5 shadow-card transition hover:border-[rgb(var(--accent))]/40 dark:shadow-card-dark",
-        cardDeadlineTone === "overdue"
+        deadlineInfo.tone === "overdue"
           ? "border-rose-300/70 dark:border-rose-900/80"
-          : cardDeadlineTone === "today"
+          : deadlineInfo.tone === "today"
             ? "border-orange-300/70 dark:border-orange-900/80"
             : "border-[rgb(var(--border))]"
       )}
@@ -292,16 +287,14 @@ export function ScheduledCard({
 
       {description ? (
         <ExpandableText
-          text={`${entityLabel} Description: ${description}`}
+          text={descriptionLabel ? `${descriptionLabel} ${description}` : description}
           lines={2}
           expandLabel="More"
           collapseLabel="Less"
           className="mt-2"
         />
       ) : (
-        <p className="mt-2 text-sm text-[rgb(var(--muted))]">
-          <span className="font-medium">{entityLabel} Description:</span> No description
-        </p>
+        <p className="mt-2 text-sm text-[rgb(var(--muted))]">No description</p>
       )}
 
       {status !== undefined && onStatusChange ? (
@@ -411,51 +404,4 @@ export function ScheduledCard({
       </section>
     </article>
   );
-}
-
-function getTaskListCountdown(
-  status: TaskListStatus,
-  startDays: number | null,
-  deadlineInfo: ReturnType<typeof getProjectDeadlineInfo>
-) {
-  if (status === "completed") {
-    return {
-      label: "Done",
-      tone: "ok" as const,
-      helper: "Task list completed",
-    };
-  }
-  if (status === "on_hold") {
-    return {
-      label: "On Hold",
-      tone: "soon" as const,
-      helper: "This task list is on hold",
-    };
-  }
-  if (status === "not_started") {
-    if (startDays !== null && startDays > 0) {
-      return {
-        label: `Starts in ${startDays} ${startDays === 1 ? "day" : "days"}`,
-        tone: startDays <= 7 ? ("soon" as const) : ("ok" as const),
-        helper: "Scheduled start date",
-      };
-    }
-    if (startDays === 0) {
-      return {
-        label: "Starts Today",
-        tone: "today" as const,
-        helper: "Scheduled start date",
-      };
-    }
-    return {
-      label: "Not Started",
-      tone: "none" as const,
-      helper: "Set a start date to schedule this list",
-    };
-  }
-  return {
-    label: deadlineInfo.label,
-    tone: deadlineInfo.tone,
-    helper: "Please update task list date",
-  };
 }
