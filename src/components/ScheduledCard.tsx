@@ -8,7 +8,11 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { calendarDaysUntil, getProjectDeadlineInfo } from "../utils/dates";
+import {
+  calendarDaysUntil,
+  getProjectDeadlineInfo,
+  type DeadlineTone,
+} from "../utils/dates";
 import { cn } from "../utils/cn";
 import { ExpandableText } from "./ExpandableText";
 import type { TaskListStatus } from "../types/todo";
@@ -392,16 +396,52 @@ export function ScheduledCard({
         </div>
       </section>
 
-      <section
-        className={cn(
-          "mt-3 rounded-xl border px-3 py-3 text-center",
-          countdownToneClass[countdown.tone]
-        )}
-        aria-label={`${entityLabel} countdown`}
-      >
-        <p className="text-base font-semibold">{countdown.label}</p>
-        <p className="mt-1 text-xs opacity-80">{countdown.helper}</p>
-      </section>
+      {status !== undefined && selectedStatus === "completed" ? (
+        <DonePanel entityLabel={entityLabel} />
+      ) : (
+        <CountdownPanel
+          entityLabel={entityLabel}
+          label={countdown.label}
+          tone={countdown.tone}
+          helper={countdown.helper}
+        />
+      )}
     </article>
+  );
+}
+
+function CountdownPanel({
+  entityLabel,
+  label,
+  tone,
+  helper,
+}: {
+  entityLabel: string;
+  label: string;
+  tone: DeadlineTone;
+  helper: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "mt-3 rounded-xl border px-3 py-3 text-center",
+        countdownToneClass[tone]
+      )}
+      aria-label={`${entityLabel} countdown`}
+    >
+      <p className="text-base font-semibold">{label}</p>
+      <p className="mt-1 text-xs opacity-80">{helper}</p>
+    </section>
+  );
+}
+
+function DonePanel({ entityLabel }: { entityLabel: string }) {
+  return (
+    <section
+      className="mt-3 flex min-h-[70px] items-center justify-center rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-center text-green-800 dark:border-green-900 dark:bg-green-950/50 dark:text-green-200"
+      aria-label={`${entityLabel} completed`}
+    >
+      <p className="text-base font-semibold">Done</p>
+    </section>
   );
 }
