@@ -1,7 +1,11 @@
 import { FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
 import { EmptyState } from "../../components/EmptyState";
 import { ExpandableText } from "../../components/ExpandableText";
+import { ProjectDeadlineBadge } from "../../components/ProjectDeadlineBadge";
+import { ProjectStartDateBadge } from "../../components/ProjectStartDateBadge";
 import type { Project } from "../../types/todo";
+import { cn } from "../../utils/cn";
+import { getProjectDeadlineInfo } from "../../utils/dates";
 
 interface ProjectListPageProps {
   projects: Project[];
@@ -69,9 +73,19 @@ export function ProjectListPage({
               project.taskCount > 0
                 ? Math.round((project.completedCount / project.taskCount) * 100)
                 : 0;
+            const deadlineInfo = getProjectDeadlineInfo(project.deadline);
             return (
               <li key={project.id}>
-                <article className="group flex h-full flex-col rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-4 shadow-card transition hover:border-[rgb(var(--accent))]/40 dark:shadow-card-dark">
+                <article
+                  className={cn(
+                    "group flex h-full flex-col rounded-2xl border bg-[rgb(var(--surface))] p-4 shadow-card transition hover:border-[rgb(var(--accent))]/40 dark:shadow-card-dark",
+                    deadlineInfo.tone === "overdue"
+                      ? "border-rose-300/70 dark:border-rose-900/80"
+                      : deadlineInfo.tone === "today"
+                        ? "border-orange-300/70 dark:border-orange-900/80"
+                        : "border-[rgb(var(--border))]"
+                  )}
+                >
                   <button
                     type="button"
                     onClick={() => onOpen(project)}
@@ -91,6 +105,10 @@ export function ProjectListPage({
                           </p>
                         )}
                       </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <ProjectStartDateBadge startDate={project.startDate} />
+                      <ProjectDeadlineBadge deadline={project.deadline} />
                     </div>
                     <div className="mt-4 space-y-2">
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[rgb(var(--muted))]">

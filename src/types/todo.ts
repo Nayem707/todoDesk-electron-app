@@ -38,6 +38,8 @@ export interface Project {
   id: string;
   name: string;
   description: string;
+  startDate: string | null;
+  deadline: string | null;
   createdAt: string;
   updatedAt: string;
   listCount: number;
@@ -48,6 +50,8 @@ export interface Project {
 export interface ProjectInput {
   name: string;
   description?: string;
+  startDate?: string | null;
+  deadline?: string | null;
 }
 
 export interface TaskList {

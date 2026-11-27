@@ -425,6 +425,36 @@ const MIGRATIONS = [
       );
     },
   },
+  {
+    version: 10,
+    name: "project-deadlines",
+    up(db) {
+      const columns = db.exec("PRAGMA table_info(projects)")[0]?.values?.map(
+        (row) => row[1]
+      ) ?? [];
+      if (!columns.includes("deadline")) {
+        db.run(`ALTER TABLE projects ADD COLUMN deadline TEXT;`);
+      }
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_projects_deadline ON projects(deadline);
+      `);
+    },
+  },
+  {
+    version: 11,
+    name: "project-start-dates",
+    up(db) {
+      const columns = db.exec("PRAGMA table_info(projects)")[0]?.values?.map(
+        (row) => row[1]
+      ) ?? [];
+      if (!columns.includes("startDate")) {
+        db.run(`ALTER TABLE projects ADD COLUMN startDate TEXT;`);
+      }
+      db.run(`
+        CREATE INDEX IF NOT EXISTS idx_projects_startDate ON projects(startDate);
+      `);
+    },
+  },
 ];
 
 /**

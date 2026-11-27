@@ -90,8 +90,18 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3,4,5,6,7,8,9") {
+if (versions.join(",") !== "1,2,3,4,5,6,7,8,9,10,11") {
   throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
+}
+
+const projectCols = migrated
+  .exec("PRAGMA table_info(projects)")[0]
+  .values.map((row) => row[1]);
+if (!projectCols.includes("deadline")) {
+  throw new Error("Migration v10 did not add projects.deadline");
+}
+if (!projectCols.includes("startDate")) {
+  throw new Error("Migration v11 did not add projects.startDate");
 }
 
 const inbox = scalar(migrated, "SELECT name FROM projects WHERE name = ?", ["Inbox"]);

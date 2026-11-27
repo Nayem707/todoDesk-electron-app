@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import type { Project, ProjectInput } from "../types/todo";
+import { DatePicker } from "./DatePicker";
 
 interface ProjectModalProps {
   open: boolean;
@@ -11,11 +12,15 @@ interface ProjectModalProps {
 const emptyForm: ProjectInput = {
   name: "",
   description: "",
+  startDate: null,
+  deadline: null,
 };
 
 export function ProjectModal({ open, project, onClose, onSubmit }: ProjectModalProps) {
   const nameId = useId();
   const descriptionId = useId();
+  const startDateId = useId();
+  const deadlineId = useId();
   const [form, setForm] = useState<ProjectInput>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -26,7 +31,12 @@ export function ProjectModal({ open, project, onClose, onSubmit }: ProjectModalP
     }
     setError(null);
     if (project) {
-      setForm({ name: project.name, description: project.description });
+      setForm({
+        name: project.name,
+        description: project.description,
+        startDate: project.startDate,
+        deadline: project.deadline,
+      });
     } else {
       setForm(emptyForm);
     }
@@ -47,6 +57,8 @@ export function ProjectModal({ open, project, onClose, onSubmit }: ProjectModalP
       await onSubmit({
         name,
         description: (form.description ?? "").trim(),
+        startDate: form.startDate ?? null,
+        deadline: form.deadline ?? null,
       });
     } finally {
       setSubmitting(false);
@@ -99,6 +111,40 @@ export function ProjectModal({ open, project, onClose, onSubmit }: ProjectModalP
               className="mt-1 w-full resize-none rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none focus:border-[rgb(var(--accent))]"
               placeholder="Optional description"
             />
+          </div>
+          <div>
+            <label htmlFor={startDateId} className="text-sm font-medium">
+              Start / assign date
+            </label>
+            <DatePicker
+              id={startDateId}
+              value={form.startDate ?? null}
+              onChange={(startDate) =>
+                setForm((current) => ({ ...current, startDate }))
+              }
+              placeholder="Pick a start date"
+              className="mt-1"
+            />
+            <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+              When this project was assigned or started.
+            </p>
+          </div>
+          <div>
+            <label htmlFor={deadlineId} className="text-sm font-medium">
+              Deadline
+            </label>
+            <DatePicker
+              id={deadlineId}
+              value={form.deadline ?? null}
+              onChange={(deadline) =>
+                setForm((current) => ({ ...current, deadline }))
+              }
+              placeholder="Pick a deadline"
+              className="mt-1"
+            />
+            <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+              Optional. Shown as a live countdown on the project list.
+            </p>
           </div>
           {error && <p className="text-sm text-[rgb(var(--danger))]">{error}</p>}
         </div>

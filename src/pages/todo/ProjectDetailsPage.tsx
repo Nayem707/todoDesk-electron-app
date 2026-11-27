@@ -1,6 +1,8 @@
 import { ArrowLeft, ListTodo, Pencil, Plus, Trash2 } from "lucide-react";
 import { EmptyState } from "../../components/EmptyState";
 import { ExpandableText } from "../../components/ExpandableText";
+import { ProjectDeadlineBadge } from "../../components/ProjectDeadlineBadge";
+import { ProjectStartDateBadge } from "../../components/ProjectStartDateBadge";
 import type { Project, TaskList } from "../../types/todo";
 
 interface ProjectDetailsPageProps {
@@ -59,6 +61,10 @@ export function ProjectDetailsPage({
           ) : (
             <p className="mt-1 text-sm text-[rgb(var(--muted))]">No description</p>
           )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <ProjectStartDateBadge startDate={project.startDate} />
+            <ProjectDeadlineBadge deadline={project.deadline} />
+          </div>
           <p className="mt-2 text-xs text-[rgb(var(--muted))]">
             {project.completedCount}/{project.taskCount} tasks · {progress}% complete
           </p>

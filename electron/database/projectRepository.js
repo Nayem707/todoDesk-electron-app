@@ -57,11 +57,24 @@ function validateDescription(description) {
   return trimmed;
 }
 
+function normalizeProjectDate(value, label) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`${label} is invalid.`);
+  }
+  return date.toISOString();
+}
+
 function mapProject(row, stats = null) {
   return {
     id: row.id,
     name: row.name,
     description: row.description ?? "",
+    startDate: row.startDate ?? null,
+    deadline: row.deadline ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     listCount: stats?.listCount ?? Number(row.listCount ?? 0),
@@ -83,46 +96,40 @@ function mapList(row) {
   };
 }
 
+const PROJECT_SELECT = `
+  SELECT
+    p.id,
+    p.name,
+    p.description,
+    p.startDate,
+    p.deadline,
+    p.createdAt,
+    p.updatedAt,
+    (SELECT COUNT(*) FROM task_lists tl WHERE tl.projectId = p.id) AS listCount,
+    (SELECT COUNT(*) FROM todos t
+       INNER JOIN task_lists tl ON tl.id = t.listId
+       WHERE tl.projectId = p.id) AS taskCount,
+    (SELECT COUNT(*) FROM todos t
+       INNER JOIN task_lists tl ON tl.id = t.listId
+       WHERE tl.projectId = p.id AND t.completed = 1) AS completedCount
+  FROM projects p
+`;
+
 export function getAllProjects() {
-  const rows = queryAll(`
-    SELECT
-      p.*,
-      (SELECT COUNT(*) FROM task_lists tl WHERE tl.projectId = p.id) AS listCount,
-      (SELECT COUNT(*) FROM todos t
-         INNER JOIN task_lists tl ON tl.id = t.listId
-         WHERE tl.projectId = p.id) AS taskCount,
-      (SELECT COUNT(*) FROM todos t
-         INNER JOIN task_lists tl ON tl.id = t.listId
-         WHERE tl.projectId = p.id AND t.completed = 1) AS completedCount
-    FROM projects p
-    ORDER BY p.createdAt ASC
-  `);
+  const rows = queryAll(`${PROJECT_SELECT} ORDER BY p.createdAt ASC`);
   return rows.map((row) => mapProject(row));
 }
 
 export function getProjectById(id) {
-  const row = queryOne(
-    `
-    SELECT
-      p.*,
-      (SELECT COUNT(*) FROM task_lists tl WHERE tl.projectId = p.id) AS listCount,
-      (SELECT COUNT(*) FROM todos t
-         INNER JOIN task_lists tl ON tl.id = t.listId
-         WHERE tl.projectId = p.id) AS taskCount,
-      (SELECT COUNT(*) FROM todos t
-         INNER JOIN task_lists tl ON tl.id = t.listId
-         WHERE tl.projectId = p.id AND t.completed = 1) AS completedCount
-    FROM projects p
-    WHERE p.id = ?
-    `,
-    [id]
-  );
+  const row = queryOne(`${PROJECT_SELECT} WHERE p.id = ?`, [id]);
   return row ? mapProject(row) : null;
 }
 
 export function createProject(input = {}) {
   const name = validateName(input.name, "Project name");
   const description = validateDescription(input.description);
+  const startDate = normalizeProjectDate(input.startDate, "Start date");
+  const deadline = normalizeProjectDate(input.deadline, "Project deadline");
   const timestamp = nowIso();
   const projectId = crypto.randomUUID();
   const listId = crypto.randomUUID();
@@ -131,9 +138,9 @@ export function createProject(input = {}) {
   db.run("BEGIN");
   try {
     db.run(
-      `INSERT INTO projects (id, name, description, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?)`,
-      [projectId, name, description, timestamp, timestamp]
+      `INSERT INTO projects (id, name, description, startDate, deadline, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [projectId, name, description, startDate, deadline, timestamp, timestamp]
     );
     db.run(
       `INSERT INTO task_lists (id, projectId, name, position, createdAt, updatedAt)
@@ -161,11 +168,19 @@ export function updateProject(id, input = {}) {
     input.description === undefined
       ? existing.description
       : validateDescription(input.description);
+  const startDate =
+    input.startDate === undefined
+      ? existing.startDate
+      : normalizeProjectDate(input.startDate, "Start date");
+  const deadline =
+    input.deadline === undefined
+      ? existing.deadline
+      : normalizeProjectDate(input.deadline, "Project deadline");
   const updatedAt = nowIso();
 
   run(
-    `UPDATE projects SET name = ?, description = ?, updatedAt = ? WHERE id = ?`,
-    [name, description, updatedAt, id]
+    `UPDATE projects SET name = ?, description = ?, startDate = ?, deadline = ?, updatedAt = ? WHERE id = ?`,
+    [name, description, startDate, deadline, updatedAt, id]
   );
   return getProjectById(id);
 }

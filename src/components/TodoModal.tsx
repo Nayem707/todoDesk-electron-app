@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import type { Priority, Todo, TodoInput } from "../types/todo";
-import { fromDateInputValue, toDateInputValue } from "../utils/dates";
 import { validateTodoForm } from "../utils/validation";
+import { DatePicker } from "./DatePicker";
 import { TagInput } from "./TagInput";
 
 interface TodoModalProps {
@@ -141,16 +141,10 @@ export function TodoModal({ open, todo, onClose, onSubmit }: TodoModalProps) {
               </div>
             </Field>
             <Field label="Due date">
-              <input
-                type="date"
-                value={toDateInputValue(form.dueDate)}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    dueDate: fromDateInputValue(event.target.value),
-                  }))
-                }
-                className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--accent))]"
+              <DatePicker
+                value={form.dueDate}
+                onChange={(dueDate) => setForm((prev) => ({ ...prev, dueDate }))}
+                placeholder="Pick a due date"
               />
             </Field>
           </div>
