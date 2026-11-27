@@ -90,7 +90,7 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3,4,5,6,7,8,9,10,11,12") {
+if (versions.join(",") !== "1,2,3,4,5,6,7,8,9,10,11,12,13") {
   throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
 }
 
@@ -106,19 +106,29 @@ if (!projectCols.includes("startDate")) {
 const taskListCols = migrated
   .exec("PRAGMA table_info(task_lists)")[0]
   .values.map((row) => row[1]);
-if (!taskListCols.includes("startDate") || !taskListCols.includes("deadline")) {
-  throw new Error("Migration v12 did not add task list startDate and deadline");
+if (
+  !taskListCols.includes("startDate") ||
+  !taskListCols.includes("deadline") ||
+  !taskListCols.includes("description")
+) {
+  throw new Error("Migration v12 or v13 did not add task list date and description fields");
 }
 
 const inbox = scalar(migrated, "SELECT name FROM projects WHERE name = ?", ["Inbox"]);
 const general = scalar(
   migrated,
-  `SELECT tl.name AS name FROM task_lists tl
+  `SELECT tl.name AS name, tl.description AS description FROM task_lists tl
    INNER JOIN projects p ON p.id = tl.projectId
    WHERE p.name = ? AND tl.name = ?`,
   ["Inbox", "General"]
 );
-if (!inbox || inbox.name !== "Inbox" || !general || general.name !== "General") {
+if (
+  !inbox ||
+  inbox.name !== "Inbox" ||
+  !general ||
+  general.name !== "General" ||
+  general.description !== ""
+) {
   throw new Error("Migration v9 did not seed Inbox / General");
 }
 

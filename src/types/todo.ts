@@ -58,6 +58,7 @@ export interface TaskList {
   id: string;
   projectId: string;
   name: string;
+  description: string;
   startDate: string | null;
   deadline: string | null;
   position: number;
@@ -69,6 +70,7 @@ export interface TaskList {
 
 export interface TaskListInput {
   name: string;
+  description?: string;
   startDate?: string | null;
   deadline?: string | null;
 }

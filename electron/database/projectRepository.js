@@ -88,6 +88,7 @@ function mapList(row) {
     id: row.id,
     projectId: row.projectId,
     name: row.name,
+    description: row.description ?? "",
     startDate: row.startDate ?? null,
     deadline: row.deadline ?? null,
     position: Number(row.position ?? 0),
@@ -239,6 +240,7 @@ export function createTaskList(projectId, input = {}) {
   }
 
   const name = validateName(input.name, "List name");
+  const description = validateDescription(input.description);
   const startDate = normalizeProjectDate(input.startDate, "List start date");
   const deadline = normalizeProjectDate(input.deadline, "List deadline");
   const timestamp = nowIso();
@@ -250,9 +252,9 @@ export function createTaskList(projectId, input = {}) {
   const id = crypto.randomUUID();
 
   run(
-    `INSERT INTO task_lists (id, projectId, name, startDate, deadline, position, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, projectId, name, startDate, deadline, position, timestamp, timestamp]
+    `INSERT INTO task_lists (id, projectId, name, description, startDate, deadline, position, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, projectId, name, description, startDate, deadline, position, timestamp, timestamp]
   );
 
   run(`UPDATE projects SET updatedAt = ? WHERE id = ?`, [timestamp, projectId]);
@@ -267,6 +269,10 @@ export function updateTaskList(id, input = {}) {
 
   const name =
     input.name === undefined ? existing.name : validateName(input.name, "List name");
+  const description =
+    input.description === undefined
+      ? existing.description
+      : validateDescription(input.description);
   const startDate =
     input.startDate === undefined
       ? existing.startDate
@@ -277,13 +283,10 @@ export function updateTaskList(id, input = {}) {
       : normalizeProjectDate(input.deadline, "List deadline");
   const updatedAt = nowIso();
 
-  run(`UPDATE task_lists SET name = ?, startDate = ?, deadline = ?, updatedAt = ? WHERE id = ?`, [
-    name,
-    startDate,
-    deadline,
-    updatedAt,
-    id,
-  ]);
+  run(
+    `UPDATE task_lists SET name = ?, description = ?, startDate = ?, deadline = ?, updatedAt = ? WHERE id = ?`,
+    [name, description, startDate, deadline, updatedAt, id]
+  );
   run(`UPDATE projects SET updatedAt = ? WHERE id = ?`, [
     updatedAt,
     existing.projectId,

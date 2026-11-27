@@ -470,6 +470,18 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    version: 13,
+    name: "task-list-descriptions",
+    up(db) {
+      const columns = db.exec("PRAGMA table_info(task_lists)")[0]?.values?.map(
+        (row) => row[1]
+      ) ?? [];
+      if (!columns.includes("description")) {
+        db.run(`ALTER TABLE task_lists ADD COLUMN description TEXT NOT NULL DEFAULT '';`);
+      }
+    },
+  },
 ];
 
 /**

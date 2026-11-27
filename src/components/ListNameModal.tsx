@@ -23,6 +23,7 @@ export function ListNameModal({
   const startDateId = useId();
   const deadlineId = useId();
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState<string | null>(null);
   const [deadline, setDeadline] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export function ListNameModal({
       return;
     }
     setName(list?.name ?? "");
+    setDescription(list?.description ?? "");
     setStartDate(list?.startDate ?? null);
     setDeadline(list?.deadline ?? null);
     setError(null);
@@ -50,7 +52,12 @@ export function ListNameModal({
     }
     setSubmitting(true);
     try {
-      await onSubmit({ name: trimmed, startDate, deadline });
+      await onSubmit({
+        name: trimmed,
+        description: description.trim(),
+        startDate,
+        deadline,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -62,7 +69,7 @@ export function ListNameModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={inputId}
-        className="w-full max-w-sm rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-5 shadow-xl"
+        className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-5 shadow-xl"
       >
         <h2 id={inputId} className="text-lg font-semibold">
           {title}
@@ -80,6 +87,21 @@ export function ListNameModal({
           placeholder="List name"
           autoFocus
           maxLength={120}
+        />
+        <label
+          htmlFor={`${inputId}-description`}
+          className="mt-4 block text-sm font-medium"
+        >
+          Description
+        </label>
+        <textarea
+          id={`${inputId}-description`}
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          rows={3}
+          maxLength={1000}
+          className="mt-1 w-full resize-none rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none focus:border-[rgb(var(--accent))]"
+          placeholder="Optional list description"
         />
         <div className="mt-4 space-y-3">
           <div>
