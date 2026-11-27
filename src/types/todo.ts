@@ -58,6 +58,8 @@ export interface TaskList {
   id: string;
   projectId: string;
   name: string;
+  startDate: string | null;
+  deadline: string | null;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -67,6 +69,8 @@ export interface TaskList {
 
 export interface TaskListInput {
   name: string;
+  startDate?: string | null;
+  deadline?: string | null;
 }
 
 export interface Todo {

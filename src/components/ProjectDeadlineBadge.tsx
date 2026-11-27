@@ -19,12 +19,14 @@ interface ProjectDeadlineBadgeProps {
   deadline: string | null | undefined;
   className?: string;
   compact?: boolean;
+  caption?: string;
 }
 
 export function ProjectDeadlineBadge({
   deadline,
   className,
   compact = false,
+  caption,
 }: ProjectDeadlineBadgeProps) {
   const info = getProjectDeadlineInfo(deadline ?? null);
 
@@ -35,14 +37,26 @@ export function ProjectDeadlineBadge({
         toneClass[info.tone],
         className
       )}
-      title={info.dateLabel ? `${info.label} · ${info.dateLabel}` : info.label}
+      title={[
+        caption,
+        info.label,
+        info.dateLabel,
+      ].filter(Boolean).join(" · ")}
     >
       <CalendarClock size={14} className="mt-0.5 shrink-0 opacity-80" />
       <div className="min-w-0 leading-tight">
-        <p className="truncate text-xs font-semibold">{info.label}</p>
+          <p className="truncate text-[11px] font-medium uppercase tracking-wide opacity-70">
+          End date
+        </p>
         {!compact && info.dateLabel ? (
           <p className="mt-0.5 truncate text-[11px] opacity-80">{info.dateLabel}</p>
         ) : null}
+        {caption ? (
+          <p className="truncate text-[11px] font-medium uppercase tracking-wide opacity-70">
+            {caption}
+          </p>
+        ) : null}
+        <p className="truncate text-xs font-semibold">{info.label}</p>
       </div>
     </div>
   );

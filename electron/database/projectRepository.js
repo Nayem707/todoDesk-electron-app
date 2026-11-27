@@ -88,6 +88,8 @@ function mapList(row) {
     id: row.id,
     projectId: row.projectId,
     name: row.name,
+    startDate: row.startDate ?? null,
+    deadline: row.deadline ?? null,
     position: Number(row.position ?? 0),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -237,6 +239,8 @@ export function createTaskList(projectId, input = {}) {
   }
 
   const name = validateName(input.name, "List name");
+  const startDate = normalizeProjectDate(input.startDate, "List start date");
+  const deadline = normalizeProjectDate(input.deadline, "List deadline");
   const timestamp = nowIso();
   const positionRow = queryOne(
     "SELECT COALESCE(MAX(position), -1) AS maxPos FROM task_lists WHERE projectId = ?",
@@ -246,9 +250,9 @@ export function createTaskList(projectId, input = {}) {
   const id = crypto.randomUUID();
 
   run(
-    `INSERT INTO task_lists (id, projectId, name, position, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, projectId, name, position, timestamp, timestamp]
+    `INSERT INTO task_lists (id, projectId, name, startDate, deadline, position, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, projectId, name, startDate, deadline, position, timestamp, timestamp]
   );
 
   run(`UPDATE projects SET updatedAt = ? WHERE id = ?`, [timestamp, projectId]);
@@ -263,10 +267,20 @@ export function updateTaskList(id, input = {}) {
 
   const name =
     input.name === undefined ? existing.name : validateName(input.name, "List name");
+  const startDate =
+    input.startDate === undefined
+      ? existing.startDate
+      : normalizeProjectDate(input.startDate, "List start date");
+  const deadline =
+    input.deadline === undefined
+      ? existing.deadline
+      : normalizeProjectDate(input.deadline, "List deadline");
   const updatedAt = nowIso();
 
-  run(`UPDATE task_lists SET name = ?, updatedAt = ? WHERE id = ?`, [
+  run(`UPDATE task_lists SET name = ?, startDate = ?, deadline = ?, updatedAt = ? WHERE id = ?`, [
     name,
+    startDate,
+    deadline,
     updatedAt,
     id,
   ]);

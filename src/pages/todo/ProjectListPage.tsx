@@ -1,11 +1,7 @@
-import { FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { EmptyState } from "../../components/EmptyState";
-import { ExpandableText } from "../../components/ExpandableText";
-import { ProjectDeadlineBadge } from "../../components/ProjectDeadlineBadge";
-import { ProjectStartDateBadge } from "../../components/ProjectStartDateBadge";
+import { ProjectCard } from "../../components/ProjectCard";
 import type { Project } from "../../types/todo";
-import { cn } from "../../utils/cn";
-import { getProjectDeadlineInfo } from "../../utils/dates";
 
 interface ProjectListPageProps {
   projects: Project[];
@@ -69,85 +65,14 @@ export function ProjectListPage({
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {projects.map((project) => {
-            const progress =
-              project.taskCount > 0
-                ? Math.round((project.completedCount / project.taskCount) * 100)
-                : 0;
-            const deadlineInfo = getProjectDeadlineInfo(project.deadline);
             return (
               <li key={project.id}>
-                <article
-                  className={cn(
-                    "group flex h-full flex-col rounded-2xl border bg-[rgb(var(--surface))] p-4 shadow-card transition hover:border-[rgb(var(--accent))]/40 dark:shadow-card-dark",
-                    deadlineInfo.tone === "overdue"
-                      ? "border-rose-300/70 dark:border-rose-900/80"
-                      : deadlineInfo.tone === "today"
-                        ? "border-orange-300/70 dark:border-orange-900/80"
-                        : "border-[rgb(var(--border))]"
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onOpen(project)}
-                    className="flex flex-1 flex-col text-left"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="mt-0.5 rounded-lg bg-[rgb(var(--accent))]/10 p-2 text-[rgb(var(--accent))]">
-                        <FolderKanban size={18} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <h2 className="truncate text-sm font-semibold">{project.name}</h2>
-                        {project.description ? (
-                          <ExpandableText text={project.description} lines={2} />
-                        ) : (
-                          <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-                            No description
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <ProjectStartDateBadge startDate={project.startDate} />
-                      <ProjectDeadlineBadge deadline={project.deadline} />
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[rgb(var(--muted))]">
-                        <span>
-                          {project.listCount}{" "}
-                          {project.listCount === 1 ? "list" : "lists"}
-                        </span>
-                        <span>
-                          {project.completedCount}/{project.taskCount} tasks done
-                        </span>
-                        <span>{progress}%</span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
-                        <div
-                          className="h-full rounded-full bg-[rgb(var(--accent))] transition-all"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  </button>
-                  <div className="mt-3 flex justify-end gap-1 border-t border-[rgb(var(--border))] pt-3">
-                    <button
-                      type="button"
-                      onClick={() => onEdit(project)}
-                      className="rounded-md p-1.5 text-[rgb(var(--muted))] hover:bg-black/5 hover:text-[rgb(var(--text))] dark:hover:bg-white/10"
-                      aria-label={`Edit ${project.name}`}
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(project)}
-                      className="rounded-md p-1.5 text-[rgb(var(--muted))] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950"
-                      aria-label={`Delete ${project.name}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </article>
+                <ProjectCard
+                  project={project}
+                  onOpen={onOpen}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
               </li>
             );
           })}

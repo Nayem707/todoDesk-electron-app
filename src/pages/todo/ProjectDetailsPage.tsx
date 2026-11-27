@@ -103,7 +103,7 @@ export function ProjectDetailsPage({
           }
         />
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid gap-3 sm:grid-cols-2">
           {lists.map((list) => {
             const listProgress =
               list.taskCount > 0
@@ -111,13 +111,13 @@ export function ProjectDetailsPage({
                 : 0;
             return (
               <li key={list.id}>
-                <article className="flex items-center gap-3 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-4 shadow-card dark:shadow-card-dark">
+                <article className="flex h-full flex-col rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-4 shadow-card dark:shadow-card-dark">
                   <button
                     type="button"
                     onClick={() => onOpenList(list)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
                   >
-                    <span className="rounded-lg bg-black/5 p-2 text-[rgb(var(--muted))] dark:bg-white/10">
+                    <span className="mt-0.5 rounded-lg bg-black/5 p-2 text-[rgb(var(--muted))] dark:bg-white/10">
                       <ListTodo size={16} />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -131,9 +131,20 @@ export function ProjectDetailsPage({
                           style={{ width: `${listProgress}%` }}
                         />
                       </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <ProjectStartDateBadge
+                          startDate={list.startDate}
+                          className="px-2 py-1"
+                        />
+                        <ProjectDeadlineBadge
+                          deadline={list.deadline}
+                          caption="List deadline"
+                          className="px-2 py-1"
+                        />
+                      </div>
                     </div>
                   </button>
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="mt-3 flex shrink-0 justify-end gap-1 border-t border-[rgb(var(--border))] pt-3">
                     <button
                       type="button"
                       onClick={() => onRenameList(list)}

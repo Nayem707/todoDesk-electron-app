@@ -219,12 +219,12 @@ export function TodoPage({
       <ListNameModal
         open={listModalMode !== null}
         title={listModalMode === "rename" ? "Rename list" : "New task list"}
-        initialName={editingList?.name ?? ""}
+        list={editingList}
         confirmLabel={listModalMode === "rename" ? "Save" : "Create"}
         onClose={() => setListModalMode(null)}
-        onSubmit={async (name) => {
+        onSubmit={async (input) => {
           if (listModalMode === "rename" && editingList) {
-            const updated = await updateTaskList(editingList.id, { name });
+            const updated = await updateTaskList(editingList.id, input);
             if (updated) {
               setListModalMode(null);
             }
@@ -233,7 +233,7 @@ export function TodoPage({
           if (!projectId) {
             return;
           }
-          const created = await createTaskList(projectId, { name });
+          const created = await createTaskList(projectId, input);
           if (created) {
             setListModalMode(null);
           }

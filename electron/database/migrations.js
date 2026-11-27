@@ -455,6 +455,21 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 12,
+    name: "task-list-dates",
+    up(db) {
+      const columns = db.exec("PRAGMA table_info(task_lists)")[0]?.values?.map(
+        (row) => row[1]
+      ) ?? [];
+      if (!columns.includes("startDate")) {
+        db.run(`ALTER TABLE task_lists ADD COLUMN startDate TEXT;`);
+      }
+      if (!columns.includes("deadline")) {
+        db.run(`ALTER TABLE task_lists ADD COLUMN deadline TEXT;`);
+      }
+    },
+  },
 ];
 
 /**

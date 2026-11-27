@@ -90,7 +90,7 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3,4,5,6,7,8,9,10,11") {
+if (versions.join(",") !== "1,2,3,4,5,6,7,8,9,10,11,12") {
   throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
 }
 
@@ -102,6 +102,12 @@ if (!projectCols.includes("deadline")) {
 }
 if (!projectCols.includes("startDate")) {
   throw new Error("Migration v11 did not add projects.startDate");
+}
+const taskListCols = migrated
+  .exec("PRAGMA table_info(task_lists)")[0]
+  .values.map((row) => row[1]);
+if (!taskListCols.includes("startDate") || !taskListCols.includes("deadline")) {
+  throw new Error("Migration v12 did not add task list startDate and deadline");
 }
 
 const inbox = scalar(migrated, "SELECT name FROM projects WHERE name = ?", ["Inbox"]);

@@ -1,24 +1,30 @@
 import { useEffect, useId, useState } from "react";
+import type { TaskList, TaskListInput } from "../types/todo";
+import { DatePicker } from "./DatePicker";
 
 interface ListNameModalProps {
   open: boolean;
   title: string;
-  initialName?: string;
+  list?: TaskList | null;
   confirmLabel?: string;
   onClose: () => void;
-  onSubmit: (name: string) => Promise<void> | void;
+  onSubmit: (input: TaskListInput) => Promise<void> | void;
 }
 
 export function ListNameModal({
   open,
   title,
-  initialName = "",
+  list = null,
   confirmLabel = "Save",
   onClose,
   onSubmit,
 }: ListNameModalProps) {
   const inputId = useId();
-  const [name, setName] = useState(initialName);
+  const startDateId = useId();
+  const deadlineId = useId();
+  const [name, setName] = useState("");
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [deadline, setDeadline] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -26,9 +32,11 @@ export function ListNameModal({
     if (!open) {
       return;
     }
-    setName(initialName);
+    setName(list?.name ?? "");
+    setStartDate(list?.startDate ?? null);
+    setDeadline(list?.deadline ?? null);
     setError(null);
-  }, [open, initialName]);
+  }, [open, list]);
 
   if (!open) {
     return null;
@@ -42,7 +50,7 @@ export function ListNameModal({
     }
     setSubmitting(true);
     try {
-      await onSubmit(trimmed);
+      await onSubmit({ name: trimmed, startDate, deadline });
     } finally {
       setSubmitting(false);
     }
@@ -73,6 +81,35 @@ export function ListNameModal({
           autoFocus
           maxLength={120}
         />
+        <div className="mt-4 space-y-3">
+          <div>
+            <label htmlFor={startDateId} className="text-sm font-medium">
+              Start date
+            </label>
+            <DatePicker
+              id={startDateId}
+              value={startDate}
+              onChange={setStartDate}
+              placeholder="Pick a start date"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label htmlFor={deadlineId} className="text-sm font-medium">
+              End date / deadline
+            </label>
+            <DatePicker
+              id={deadlineId}
+              value={deadline}
+              onChange={setDeadline}
+              placeholder="Pick an end date"
+              className="mt-1"
+            />
+            <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+              Shows a countdown on this project’s task list.
+            </p>
+          </div>
+        </div>
         {error && <p className="mt-2 text-sm text-[rgb(var(--danger))]">{error}</p>}
         <div className="mt-5 flex justify-end gap-2">
           <button
