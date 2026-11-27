@@ -4,7 +4,7 @@ import { ExpandableText } from "../../components/ExpandableText";
 import { ProjectDeadlineBadge } from "../../components/ProjectDeadlineBadge";
 import { ProjectStartDateBadge } from "../../components/ProjectStartDateBadge";
 import { TaskListCard } from "../../components/TaskListCard";
-import type { Project, TaskList } from "../../types/todo";
+import type { Project, TaskList, TaskListStatus } from "../../types/todo";
 
 interface ProjectDetailsPageProps {
   project: Project;
@@ -16,6 +16,7 @@ interface ProjectDetailsPageProps {
   onOpenList: (list: TaskList) => void;
   onRenameList: (list: TaskList) => void;
   onDeleteList: (list: TaskList) => void;
+  onChangeListStatus: (list: TaskList, status: TaskListStatus) => Promise<boolean>;
 }
 
 export function ProjectDetailsPage({
@@ -28,6 +29,7 @@ export function ProjectDetailsPage({
   onOpenList,
   onRenameList,
   onDeleteList,
+  onChangeListStatus,
 }: ProjectDetailsPageProps) {
   const progress =
     project.taskCount > 0
@@ -113,6 +115,7 @@ export function ProjectDetailsPage({
                 onOpen={onOpenList}
                 onRename={onRenameList}
                 onDelete={onDeleteList}
+                onChangeStatus={onChangeListStatus}
               />
             </li>
           ))}

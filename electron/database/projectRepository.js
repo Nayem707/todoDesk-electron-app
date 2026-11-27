@@ -3,6 +3,12 @@ import { getDb, schedulePersist } from "./connection.js";
 
 const NAME_MAX = 120;
 const DESCRIPTION_MAX = 1000;
+const TASK_LIST_STATUSES = new Set([
+  "not_started",
+  "running",
+  "on_hold",
+  "completed",
+]);
 
 function nowIso() {
   return new Date().toISOString();
@@ -57,6 +63,13 @@ function validateDescription(description) {
   return trimmed;
 }
 
+function validateTaskListStatus(status) {
+  if (!TASK_LIST_STATUSES.has(status)) {
+    throw new Error("Task list status is invalid.");
+  }
+  return status;
+}
+
 function normalizeProjectDate(value, label) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -89,6 +102,7 @@ function mapList(row) {
     projectId: row.projectId,
     name: row.name,
     description: row.description ?? "",
+    status: row.status ?? "not_started",
     startDate: row.startDate ?? null,
     deadline: row.deadline ?? null,
     position: Number(row.position ?? 0),
@@ -241,6 +255,10 @@ export function createTaskList(projectId, input = {}) {
 
   const name = validateName(input.name, "List name");
   const description = validateDescription(input.description);
+  const status =
+    input.status === undefined
+      ? "not_started"
+      : validateTaskListStatus(input.status);
   const startDate = normalizeProjectDate(input.startDate, "List start date");
   const deadline = normalizeProjectDate(input.deadline, "List deadline");
   const timestamp = nowIso();
@@ -252,9 +270,20 @@ export function createTaskList(projectId, input = {}) {
   const id = crypto.randomUUID();
 
   run(
-    `INSERT INTO task_lists (id, projectId, name, description, startDate, deadline, position, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, projectId, name, description, startDate, deadline, position, timestamp, timestamp]
+    `INSERT INTO task_lists (id, projectId, name, description, status, startDate, deadline, position, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      projectId,
+      name,
+      description,
+      status,
+      startDate,
+      deadline,
+      position,
+      timestamp,
+      timestamp,
+    ]
   );
 
   run(`UPDATE projects SET updatedAt = ? WHERE id = ?`, [timestamp, projectId]);
@@ -273,6 +302,10 @@ export function updateTaskList(id, input = {}) {
     input.description === undefined
       ? existing.description
       : validateDescription(input.description);
+  const status =
+    input.status === undefined
+      ? existing.status
+      : validateTaskListStatus(input.status);
   const startDate =
     input.startDate === undefined
       ? existing.startDate
@@ -284,8 +317,8 @@ export function updateTaskList(id, input = {}) {
   const updatedAt = nowIso();
 
   run(
-    `UPDATE task_lists SET name = ?, description = ?, startDate = ?, deadline = ?, updatedAt = ? WHERE id = ?`,
-    [name, description, startDate, deadline, updatedAt, id]
+    `UPDATE task_lists SET name = ?, description = ?, status = ?, startDate = ?, deadline = ?, updatedAt = ? WHERE id = ?`,
+    [name, description, status, startDate, deadline, updatedAt, id]
   );
   run(`UPDATE projects SET updatedAt = ? WHERE id = ?`, [
     updatedAt,

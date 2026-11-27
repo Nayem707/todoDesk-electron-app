@@ -482,6 +482,22 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    version: 14,
+    name: "task-list-status",
+    up(db) {
+      const columns = db.exec("PRAGMA table_info(task_lists)")[0]?.values?.map(
+        (row) => row[1]
+      ) ?? [];
+      if (!columns.includes("status")) {
+        db.run(`
+          ALTER TABLE task_lists
+          ADD COLUMN status TEXT NOT NULL DEFAULT 'not_started'
+          CHECK (status IN ('not_started', 'running', 'on_hold', 'completed'));
+        `);
+      }
+    },
+  },
 ];
 
 /**

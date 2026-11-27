@@ -183,11 +183,11 @@ export function TodoProvider({ children }: { children: ReactNode }) {
       try {
         const updated = await todoService.updateTaskList(id, input);
         await refresh();
-        toast.success("Task list renamed");
+        toast.success("Task list updated");
         return updated;
       } catch (error) {
         console.error("[todos] update list failed", error);
-        toast.error(getErrorMessage(error, "Could not rename task list."));
+        toast.error(getErrorMessage(error, "Could not update task list."));
         return null;
       }
     },

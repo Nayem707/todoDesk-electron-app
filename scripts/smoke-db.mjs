@@ -90,7 +90,7 @@ runMigrations(migrated);
 runMigrations(migrated);
 
 const versions = migrated.exec("SELECT version FROM schema_migrations ORDER BY version")[0].values.map((row) => row[0]);
-if (versions.join(",") !== "1,2,3,4,5,6,7,8,9,10,11,12,13") {
+if (versions.join(",") !== "1,2,3,4,5,6,7,8,9,10,11,12,13,14") {
   throw new Error(`Migration versions mismatch: ${versions.join(",")}`);
 }
 
@@ -109,15 +109,16 @@ const taskListCols = migrated
 if (
   !taskListCols.includes("startDate") ||
   !taskListCols.includes("deadline") ||
-  !taskListCols.includes("description")
+  !taskListCols.includes("description") ||
+  !taskListCols.includes("status")
 ) {
-  throw new Error("Migration v12 or v13 did not add task list date and description fields");
+  throw new Error("Task list migrations did not add all list metadata fields");
 }
 
-const inbox = scalar(migrated, "SELECT name FROM projects WHERE name = ?", ["Inbox"]);
+const inbox = scalar(migrated, "SELECT id, name FROM projects WHERE name = ?", ["Inbox"]);
 const general = scalar(
   migrated,
-  `SELECT tl.name AS name, tl.description AS description FROM task_lists tl
+  `SELECT tl.name AS name, tl.description AS description, tl.status AS status FROM task_lists tl
    INNER JOIN projects p ON p.id = tl.projectId
    WHERE p.name = ? AND tl.name = ?`,
   ["Inbox", "General"]
@@ -127,9 +128,51 @@ if (
   inbox.name !== "Inbox" ||
   !general ||
   general.name !== "General" ||
-  general.description !== ""
+  general.description !== "" ||
+  general.status !== "not_started"
 ) {
-  throw new Error("Migration v9 did not seed Inbox / General");
+  throw new Error("Inbox / General migration defaults are invalid");
+}
+
+const statusListId = "status-persistence-list";
+migrated.run(
+  `INSERT INTO task_lists
+    (id, projectId, name, description, status, startDate, deadline, position, createdAt, updatedAt)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [
+    statusListId,
+    inbox.id,
+    "Status persistence",
+    "",
+    "running",
+    null,
+    null,
+    1,
+    now,
+    now,
+  ]
+);
+const persistedStatus = scalar(
+  migrated,
+  "SELECT status FROM task_lists WHERE id = ?",
+  [statusListId]
+);
+if (!persistedStatus || persistedStatus.status !== "running" || general.status !== "not_started") {
+  throw new Error("Task list statuses are not independent");
+}
+
+try {
+  migrated.run(
+    `INSERT INTO task_lists
+      (id, projectId, name, status, position, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ["invalid-status-list", inbox.id, "Invalid status", "invalid", 2, now, now]
+  );
+  throw new Error("Invalid task list status was allowed");
+} catch (error) {
+  if (String(error.message || error).includes("Invalid task list status was allowed")) {
+    throw error;
+  }
 }
 
 const later = new Date(Date.now() + 1000).toISOString();
@@ -212,6 +255,14 @@ const reopenedClipboard = new SQL.Database(fs.readFileSync(persistedPath));
 const persistedCount = reopenedClipboard.exec("SELECT COUNT(*) AS c FROM clipboard_items")[0].values[0][0];
 if (persistedCount !== 2) {
   throw new Error("Clipboard history did not persist after reopen");
+}
+const persistedStatusAfterReopen = scalar(
+  reopenedClipboard,
+  "SELECT status FROM task_lists WHERE id = ?",
+  [statusListId]
+);
+if (!persistedStatusAfterReopen || persistedStatusAfterReopen.status !== "running") {
+  throw new Error("Task list status did not persist after reopen");
 }
 fs.unlinkSync(persistedPath);
 

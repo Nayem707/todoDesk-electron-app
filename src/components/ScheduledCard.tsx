@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   CalendarClock,
   CalendarDays,
+  Check,
+  ChevronDown,
   MoreVertical,
   Pencil,
   Trash2,
@@ -9,6 +11,7 @@ import {
 import { calendarDaysUntil, getProjectDeadlineInfo } from "../utils/dates";
 import { cn } from "../utils/cn";
 import { ExpandableText } from "./ExpandableText";
+import type { TaskListStatus } from "../types/todo";
 
 interface ScheduledCardProps {
   entityLabel: string;
@@ -18,7 +21,10 @@ interface ScheduledCardProps {
   progressSummary: string;
   startDate: string | null;
   deadline: string | null;
+  status?: TaskListStatus;
+  onStatusChange?: (status: TaskListStatus) => Promise<boolean>;
   editActionLabel: string;
+  deleteActionLabel?: string;
   deleteDisabled?: boolean;
   deleteDisabledTitle?: string;
   onOpen: () => void;
@@ -35,6 +41,43 @@ const countdownToneClass = {
   overdue:
     "border-rose-300/80 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200",
 };
+
+const statusDetails: Record<
+  TaskListStatus,
+  { label: string; className: string; dotClassName: string }
+> = {
+  not_started: {
+    label: "Not Started",
+    className:
+      "border-[rgb(var(--border))] bg-black/[0.03] text-[rgb(var(--muted))] dark:bg-white/[0.04]",
+    dotClassName: "bg-[rgb(var(--muted))]",
+  },
+  running: {
+    label: "Running",
+    className:
+      "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-200",
+    dotClassName: "bg-blue-500",
+  },
+  on_hold: {
+    label: "On Hold",
+    className:
+      "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900 dark:bg-orange-950/50 dark:text-orange-200",
+    dotClassName: "bg-orange-500",
+  },
+  completed: {
+    label: "Completed",
+    className:
+      "border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/50 dark:text-green-200",
+    dotClassName: "bg-green-500",
+  },
+};
+
+const taskListStatuses: TaskListStatus[] = [
+  "not_started",
+  "running",
+  "on_hold",
+  "completed",
+];
 
 function formatCardDate(value: string | null, emptyLabel: string) {
   if (!value) {
@@ -56,7 +99,10 @@ export function ScheduledCard({
   progressSummary,
   startDate,
   deadline,
+  status,
+  onStatusChange,
   editActionLabel,
+  deleteActionLabel = `Delete ${entityLabel.toLowerCase()}`,
   deleteDisabled = false,
   deleteDisabledTitle,
   onOpen,
@@ -64,18 +110,35 @@ export function ScheduledCard({
   onDelete,
 }: ScheduledCardProps) {
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<TaskListStatus>(
+    status ?? "not_started"
+  );
   const actionsRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
   const deadlineInfo = getProjectDeadlineInfo(deadline);
   const startDays = calendarDaysUntil(startDate);
   const startsInFuture = startDays !== null && startDays > 0;
-  const countdownLabel = startsInFuture
-    ? `Starts in ${startDays} ${startDays === 1 ? "day" : "days"}`
-    : deadlineInfo.label;
-  const countdownTone = startsInFuture
-    ? startDays <= 7
-      ? "soon"
-      : "ok"
-    : deadlineInfo.tone;
+  const countdown =
+    status === undefined
+      ? {
+          label: startsInFuture
+            ? `Starts in ${startDays} ${startDays === 1 ? "day" : "days"}`
+            : deadlineInfo.label,
+          tone: startsInFuture
+            ? startDays <= 7
+              ? "soon"
+              : "ok"
+            : deadlineInfo.tone,
+          helper: `Please update ${entityLabel.toLowerCase()} date`,
+        }
+      : getTaskListCountdown(selectedStatus, startDays, deadlineInfo);
+  const cardDeadlineTone =
+    selectedStatus === "completed" && status !== undefined
+      ? "none"
+      : deadlineInfo.tone;
+  const currentStatus = statusDetails[selectedStatus];
 
   useEffect(() => {
     if (!actionsOpen) {
@@ -101,14 +164,62 @@ export function ScheduledCard({
     };
   }, [actionsOpen]);
 
+  useEffect(() => {
+    setSelectedStatus(status ?? "not_started");
+  }, [status]);
+
+  useEffect(() => {
+    if (!statusMenuOpen) {
+      return;
+    }
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!statusRef.current?.contains(event.target as Node)) {
+        setStatusMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setStatusMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [statusMenuOpen]);
+
+  const changeStatus = async (nextStatus: TaskListStatus) => {
+    if (!onStatusChange || nextStatus === selectedStatus || statusSaving) {
+      setStatusMenuOpen(false);
+      return;
+    }
+
+    const previousStatus = selectedStatus;
+    setSelectedStatus(nextStatus);
+    setStatusMenuOpen(false);
+    setStatusSaving(true);
+    try {
+      const saved = await onStatusChange(nextStatus);
+      if (!saved) {
+        setSelectedStatus(previousStatus);
+      }
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
   return (
     <article
       onClick={onOpen}
       className={cn(
         "flex h-full cursor-pointer flex-col rounded-2xl border bg-[rgb(var(--surface))] p-5 shadow-card transition hover:border-[rgb(var(--accent))]/40 dark:shadow-card-dark",
-        deadlineInfo.tone === "overdue"
+        cardDeadlineTone === "overdue"
           ? "border-rose-300/70 dark:border-rose-900/80"
-          : deadlineInfo.tone === "today"
+          : cardDeadlineTone === "today"
             ? "border-orange-300/70 dark:border-orange-900/80"
             : "border-[rgb(var(--border))]"
       )}
@@ -172,7 +283,7 @@ export function ScheduledCard({
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-rose-950"
               >
                 <Trash2 size={14} />
-                Delete {entityLabel.toLowerCase()}
+                {deleteActionLabel}
               </button>
             </div>
           ) : null}
@@ -192,6 +303,59 @@ export function ScheduledCard({
           <span className="font-medium">{entityLabel} Description:</span> No description
         </p>
       )}
+
+      {status !== undefined && onStatusChange ? (
+        <div ref={statusRef} className="relative mt-3 self-start">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setStatusMenuOpen((open) => !open);
+            }}
+            disabled={statusSaving}
+            aria-label={`Change task list status, currently ${currentStatus.label}`}
+            aria-haspopup="menu"
+            aria-expanded={statusMenuOpen}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:cursor-wait disabled:opacity-70",
+              currentStatus.className
+            )}
+          >
+            <span className={cn("h-2 w-2 rounded-full", currentStatus.dotClassName)} />
+            {currentStatus.label}
+            <ChevronDown size={13} />
+          </button>
+          {statusMenuOpen ? (
+            <div
+              role="menu"
+              className="absolute left-0 top-full z-20 mt-1 min-w-40 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-1 shadow-xl"
+            >
+              {taskListStatuses.map((nextStatus) => {
+                const option = statusDetails[nextStatus];
+                return (
+                  <button
+                    key={nextStatus}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={selectedStatus === nextStatus}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void changeStatus(nextStatus);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    <span
+                      className={cn("h-2 w-2 rounded-full", option.dotClassName)}
+                    />
+                    <span className="flex-1">{option.label}</span>
+                    {selectedStatus === nextStatus ? <Check size={14} /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <section className="mt-5" aria-label={`${entityLabel} progress`}>
         <div className="h-2.5 overflow-hidden rounded-full border border-[rgb(var(--border))] bg-black/[0.03] dark:bg-white/[0.04]">
@@ -238,15 +402,60 @@ export function ScheduledCard({
       <section
         className={cn(
           "mt-3 rounded-xl border px-3 py-3 text-center",
-          countdownToneClass[countdownTone]
+          countdownToneClass[countdown.tone]
         )}
         aria-label={`${entityLabel} countdown`}
       >
-        <p className="text-base font-semibold">{countdownLabel}</p>
-        <p className="mt-1 text-xs opacity-80">
-          Please update {entityLabel.toLowerCase()} date
-        </p>
+        <p className="text-base font-semibold">{countdown.label}</p>
+        <p className="mt-1 text-xs opacity-80">{countdown.helper}</p>
       </section>
     </article>
   );
+}
+
+function getTaskListCountdown(
+  status: TaskListStatus,
+  startDays: number | null,
+  deadlineInfo: ReturnType<typeof getProjectDeadlineInfo>
+) {
+  if (status === "completed") {
+    return {
+      label: "Done",
+      tone: "ok" as const,
+      helper: "Task list completed",
+    };
+  }
+  if (status === "on_hold") {
+    return {
+      label: "On Hold",
+      tone: "soon" as const,
+      helper: "This task list is on hold",
+    };
+  }
+  if (status === "not_started") {
+    if (startDays !== null && startDays > 0) {
+      return {
+        label: `Starts in ${startDays} ${startDays === 1 ? "day" : "days"}`,
+        tone: startDays <= 7 ? ("soon" as const) : ("ok" as const),
+        helper: "Scheduled start date",
+      };
+    }
+    if (startDays === 0) {
+      return {
+        label: "Starts Today",
+        tone: "today" as const,
+        helper: "Scheduled start date",
+      };
+    }
+    return {
+      label: "Not Started",
+      tone: "none" as const,
+      helper: "Set a start date to schedule this list",
+    };
+  }
+  return {
+    label: deadlineInfo.label,
+    tone: deadlineInfo.tone,
+    helper: "Please update task list date",
+  };
 }

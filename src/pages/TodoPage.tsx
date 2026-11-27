@@ -178,6 +178,9 @@ export function TodoPage({
             setListModalMode("rename");
           }}
           onDeleteList={requestDeleteList}
+          onChangeListStatus={async (list, status) =>
+            Boolean(await updateTaskList(list.id, { status }))
+          }
         />
       )}
 

@@ -1,4 +1,4 @@
-import type { TaskList } from "../types/todo";
+import type { TaskList, TaskListStatus } from "../types/todo";
 import { ScheduledCard } from "./ScheduledCard";
 
 interface TaskListCardProps {
@@ -7,6 +7,7 @@ interface TaskListCardProps {
   onOpen: (list: TaskList) => void;
   onRename: (list: TaskList) => void;
   onDelete: (list: TaskList) => void;
+  onChangeStatus: (list: TaskList, status: TaskListStatus) => Promise<boolean>;
 }
 
 export function TaskListCard({
@@ -15,6 +16,7 @@ export function TaskListCard({
   onOpen,
   onRename,
   onDelete,
+  onChangeStatus,
 }: TaskListCardProps) {
   const progress =
     list.taskCount > 0
@@ -33,7 +35,10 @@ export function TaskListCard({
       progressSummary={progressSummary}
       startDate={list.startDate}
       deadline={list.deadline}
-      editActionLabel="Rename list"
+      status={list.status}
+      onStatusChange={(status) => onChangeStatus(list, status)}
+      editActionLabel="Edit"
+      deleteActionLabel="Delete"
       deleteDisabled={listCount <= 1}
       deleteDisabledTitle={
         listCount <= 1 ? "A project must keep at least one list" : undefined

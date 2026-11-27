@@ -54,11 +54,14 @@ export interface ProjectInput {
   deadline?: string | null;
 }
 
+export type TaskListStatus = "not_started" | "running" | "on_hold" | "completed";
+
 export interface TaskList {
   id: string;
   projectId: string;
   name: string;
   description: string;
+  status: TaskListStatus;
   startDate: string | null;
   deadline: string | null;
   position: number;
@@ -71,6 +74,7 @@ export interface TaskList {
 export interface TaskListInput {
   name: string;
   description?: string;
+  status?: TaskListStatus;
   startDate?: string | null;
   deadline?: string | null;
 }
